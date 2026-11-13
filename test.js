@@ -362,8 +362,11 @@ test('app.js initializes cleanly and responds to UI controls, sliders, keyboard 
   vp.trigger('pointerup', { pointerId: 11 });
 
   // Test keyboard shortcuts (Zen mode 'h', wind gust 'w', reset camera 'r', space pause)
+  assert(sandbox.document.body.classList.contains('zen-mode'), 'zen-mode should be active by default');
   sandbox.window.triggerWindow('keydown', { key: 'h', target: { tagName: 'BODY' } });
-  assert(sandbox.document.body.classList.contains('zen-mode'), 'Key H should toggle zen-mode class on body');
+  assert(!sandbox.document.body.classList.contains('zen-mode'), 'Key H should toggle zen-mode class off');
+  sandbox.window.triggerWindow('keydown', { key: 'h', target: { tagName: 'BODY' } });
+  assert(sandbox.document.body.classList.contains('zen-mode'), 'Key H should toggle zen-mode class back on');
   sandbox.window.triggerWindow('keydown', { key: 'Escape', target: { tagName: 'BODY' } });
   assert(!sandbox.document.body.classList.contains('zen-mode'), 'Escape should exit zen-mode');
 

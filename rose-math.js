@@ -55,7 +55,7 @@
     const swayZ = (windSwayZ || 0) * Math.pow(1 - t, 1.8);
     return {
       x: -Math.sin(t * 2.2) * 0.11 + Math.sin(t * 5.0) * 0.02 + swayX,
-      y: 0.04 - t * 1.68,
+      y: 0.04 - t * 1.50,
       z: Math.cos(t * 1.8 - 0.5) * 0.06 - 0.04 + swayZ
     };
   }
@@ -220,11 +220,9 @@
   // ============================================================================
   function evalCortesPetal(a, b, petalIdx, bloom) {
     const A = a * 2 - 1;
-    const B = b * 2 - 1;
 
     // In Cortés's equation, petalIdx = 0 (c = 0) is the OUTERMOST petal (widest & furthest out),
     // and petalIdx = 23 (c = 31.08) is the INNERMOST tight spiral bud core!
-    const c = petalIdx / 0.74;
     const petalRatio = 1.0 - (petalIdx / 23); // 1 = outermost petal, 0 = innermost core
 
     // Progressive bloom: outer petals (petalRatio ~ 1) unfurl first, inner petals stay cupped longer
@@ -234,32 +232,32 @@
     const vTip = 1 - b; // 0 at base, 1 at upper lip
     const absA = Math.abs(A);
 
-    // Polar flare angle phi: inner bud core stands upright (phi ~ 0.16), outer petals open wide (phi ~ 1.22)
+    // Polar flare angle phi: inner bud core stands upright (phi ~ 0.15), outer petals open wide (phi ~ 1.25)
     const flarePhi = lerp(
-      0.14 + 0.24 * petalRatio,
-      0.18 + 1.06 * Math.pow(petalRatio, 1.08) + Math.max(0, bloom - 1) * 0.22 * petalRatio,
+      0.12 + 0.22 * petalRatio,
+      0.16 + 1.12 * Math.pow(petalRatio, 0.92) + Math.max(0, bloom - 1) * 0.24 * petalRatio,
       localBloom
     );
     const sinPhi = Math.sin(flarePhi);
     const cosPhi = Math.cos(flarePhi);
 
     // Cortés's signature 7th-power rolled upper petal lip + concave bowl curvature
-    const cortLipRoll = (1 - Math.cos(Math.pow(vTip, 7))) * 0.24 * localBloom;
-    const cupDepth = Math.sin(vTip * PI * 0.88) * 0.17 * (1 - 0.55 * A * A);
+    const cortLipRoll = (1 - Math.cos(Math.pow(vTip, 7))) * 0.22 * localBloom;
+    const cupDepth = Math.sin(vTip * PI * 0.85) * 0.11 * (1 - 0.65 * A * A);
 
-    const petalLen = vTip * (0.54 + 0.34 * petalRatio);
-    const baseRadius = 0.035 + 0.28 * petalRatio * localBloom;
+    const petalLen = vTip * (0.52 + 0.34 * petalRatio);
+    const baseRadius = 0.04 + 0.34 * Math.pow(petalRatio, 0.88) * localBloom;
 
-    // True 3D polar projection: as flarePhi opens, radial reach grows with sin(phi) and height drops with cos(phi)
+    // True 3D polar projection: inner whorls form a nested spiral cup; outer whorls flare wide
     const rDist = Math.max(
-      0.025,
-      baseRadius + petalLen * sinPhi - cupDepth * cosPhi + cortLipRoll * Math.cos(A * PI * 1.25)
+      0.03,
+      baseRadius + petalLen * sinPhi + cupDepth * 0.45 + cortLipRoll * Math.cos(A * PI * 1.15)
     );
-    const wy = 0.05 + petalLen * cosPhi + cupDepth * sinPhi - cortLipRoll * 0.45 - petalRatio * 0.08 * localBloom;
+    const wy = 0.04 + petalLen * cosPhi + (1 - petalRatio) * 0.14 * vTip - cortLipRoll * 0.38 - petalRatio * 0.18 * localBloom * vTip;
 
-    // Cortés's width profile (80 - 2c) wrapped concavely around the flower axis by the Golden Angle
-    const halfSpan = (1 + vTip * 0.85) * (0.42 + 0.48 * petalRatio) * lerp(0.58, 1.08, localBloom);
-    const angularOffset = (A * halfSpan) / Math.max(0.28, rDist * 0.82 + 0.18);
+    //Since (A, B) is constrained to the unit disk A² + B² < 0.98, A naturally tapers at the tip & base
+    const halfAngle = (0.72 + 0.36 * petalRatio) * lerp(0.78, 1.06, localBloom);
+    const angularOffset = A * halfAngle;
     const baseAzimuth = petalIdx * 2.39996323; // 137.50776 deg Golden Angle
     const theta = baseAzimuth + angularOffset;
 
@@ -267,10 +265,11 @@
     const wz = rDist * Math.sin(theta);
 
     // Rich radial + vertical velvet shading with bright curled upper lips
-    const vShade = clamp(vTip * (1 - 0.18 * absA * absA), 0, 1);
-    const red = clamp((0.26 + 0.70 * Math.pow(vShade, 0.75)) + 0.10 * (1 - absA), 0.16, 1.0);
-    const green = clamp(Math.pow(vShade, 8) * 0.34 + 0.03, 0.02, 0.48);
-    const blue = clamp(red * red * 0.30, 0.02, 0.45);
+    const radialRim = Math.sqrt(Math.min(1, A * A + (2 * b - 1) * (2 * b - 1)));
+    const vShade = clamp(vTip * 0.78 + radialRim * 0.22 * vTip, 0, 1);
+    const red = clamp((0.32 + 0.68 * Math.pow(vShade, 0.65)) + 0.12 * (1 - absA), 0.22, 1.0);
+    const green = clamp(Math.pow(vShade, 5.5) * 0.38 + 0.04, 0.02, 0.52);
+    const blue = clamp(red * red * 0.32, 0.03, 0.48);
 
     return {
       x: wx,
@@ -312,7 +311,7 @@
     const sinPhi = Math.sin(phi);
     const cosPhi = Math.cos(phi);
 
-    const rScale = lerp(0.52, 1.04 + Math.max(0, bloom - 1) * 0.18, openFactor);
+    const rScale = lerp(0.52, 1.06 + Math.max(0, bloom - 1) * 0.18, openFactor);
     const baseRadius = 0.05 * (1 - thetaNorm) * (1 - xParam);
     const rProj = baseRadius + X * (xParam * sinPhi + y * cosPhi) * rScale;
     const zUp = X * (xParam * cosPhi - y * sinPhi);
@@ -323,10 +322,10 @@
     const wz = rProj * Math.cos(theta);
     const wy = 0.04 + (zUp * 0.88) + cupLift;
 
-    const vEffective = clamp(xParam * (0.7 + 0.3 * lobeNorm), 0, 1);
-    const red = clamp(0.26 + 0.70 * Math.pow(vEffective, 0.8), 0.15, 1.0);
-    const green = clamp(0.03 + 0.28 * Math.pow(vEffective, 7), 0.02, 0.42);
-    const blue = clamp(0.05 + 0.28 * Math.pow(vEffective, 3), 0.03, 0.42);
+    const vEffective = clamp(xParam * (0.72 + 0.28 * lobeNorm), 0, 1);
+    const red = clamp(0.32 + 0.68 * Math.pow(vEffective, 0.72), 0.22, 1.0);
+    const green = clamp(0.04 + 0.34 * Math.pow(vEffective, 6), 0.02, 0.48);
+    const blue = clamp(0.06 + 0.30 * Math.pow(vEffective, 2.8), 0.03, 0.45);
 
     // Continuous petal index (3.6 petals per 2*PI revolution)
     const petalId = Math.floor((3.6 * (theta + 2 * PI)) / TAU);
@@ -355,19 +354,24 @@
     const baseAzimuth = petalIdx * goldenAngle;
 
     const U = u * 2 - 1;
-    const widthEnv = Math.sin(Math.pow(v, 0.60) * PI * 0.95) * (0.38 + 0.56 * pRatio);
+    const absU = Math.abs(U);
     const localOpen = smoothstep(0.0, 0.92, bloom * (0.35 + 0.75 * pRatio));
 
-    const baseRadius = 0.04 + 0.38 * pRatio * localOpen;
-    const flareAngle = lerp(0.16, 0.24 + 1.08 * pRatio, localOpen);
+    const baseRadius = 0.04 + 0.36 * Math.pow(pRatio, 0.88) * localOpen;
+    const flareAngle = lerp(0.14, 0.18 + 1.08 * Math.pow(pRatio, 0.9), localOpen);
 
-    const lipCurl = Math.pow(Math.max(0, v - 0.55) / 0.45, 2.0) * 0.22 * localOpen * Math.cos(U * PI * 1.5);
-    const cupCurve = Math.sin(v * PI * 0.85) * 0.16 * (1 - U * U * 0.6);
+    const lipCurl = Math.pow(Math.max(0, v - 0.55) / 0.45, 2.0) * 0.20 * localOpen * Math.cos(U * PI * 1.4);
+    const cupCurve = Math.sin(v * PI * 0.85) * 0.10 * (1 - U * U * 0.6);
+    const cornerRound = 1.0 - 0.22 * Math.pow(absU, 2.2) * Math.pow(v, 1.5);
 
-    const rDist = baseRadius + v * (0.42 + 0.36 * pRatio) * Math.sin(flareAngle) + lipCurl - cupCurve * Math.cos(flareAngle);
-    const height = 0.06 + v * (0.58 + 0.22 * (1 - pRatio)) * Math.cos(flareAngle) + cupCurve * Math.sin(flareAngle) - pRatio * 0.15 * localOpen;
+    const rDist = Math.max(
+      0.03,
+      baseRadius + v * (0.46 + 0.36 * pRatio) * cornerRound * Math.sin(flareAngle) + lipCurl + cupCurve * 0.45
+    );
+    const height = 0.04 + v * (0.54 + 0.20 * (1 - pRatio)) * cornerRound * Math.cos(flareAngle) + (1 - pRatio) * 0.12 * v - pRatio * 0.16 * localOpen * v;
 
-    const angularSpan = (U * widthEnv) / Math.max(0.22, rDist * 0.85);
+    const bladeEnv = 0.45 + 0.55 * Math.sin(Math.pow(v, 0.58) * PI * 0.88);
+    const angularSpan = U * bladeEnv * (0.68 + 0.32 * pRatio) * lerp(0.78, 1.05, localOpen);
     const theta = baseAzimuth + angularSpan;
 
     const wx = rDist * Math.cos(theta);
@@ -375,10 +379,10 @@
     const wy = height;
 
     const isStamen = petalIdx < 5 && v < 0.45;
-    const vShade = clamp(v * (1 - 0.25 * U * U), 0, 1);
-    const red = isStamen ? 0.98 : clamp(0.26 + 0.70 * Math.pow(vShade, 0.75), 0.15, 1.0);
-    const green = isStamen ? 0.78 : clamp(0.03 + 0.30 * Math.pow(vShade, 6), 0.02, 0.45);
-    const blue = isStamen ? 0.18 : clamp(0.05 + 0.26 * vShade * vShade, 0.02, 0.4);
+    const vShade = clamp(v * (1 - 0.20 * U * U), 0, 1);
+    const red = isStamen ? 0.98 : clamp(0.32 + 0.68 * Math.pow(vShade, 0.68), 0.22, 1.0);
+    const green = isStamen ? 0.78 : clamp(0.04 + 0.34 * Math.pow(vShade, 5.5), 0.02, 0.48);
+    const blue = isStamen ? 0.18 : clamp(0.06 + 0.28 * vShade * vShade, 0.03, 0.44);
 
     return {
       x: wx,
@@ -392,6 +396,88 @@
       r: red,
       g: green,
       b: blue
+    };
+  }
+
+  // ============================================================================
+  // MODEL 4: SACRED LOTUS (Nelumbo nucifera — Concentric Boat-Shaped Petals)
+  // ============================================================================
+  function evalLotusPetalPoint(u, v, petalIdx, totalPetals, bloom) {
+    const goldenAngle = 2.399963229728653;
+    const pRatio = petalIdx / (totalPetals - 1);
+    const baseAzimuth = petalIdx * goldenAngle;
+
+    const U = u * 2 - 1;
+    // Boat-shaped acuminate lotus petal
+    const widthEnv = Math.sin(Math.pow(v, 0.55) * PI) * (0.44 + 0.42 * pRatio);
+    const localOpen = smoothstep(0.0, 0.95, bloom * (0.30 + 0.80 * pRatio));
+
+    const baseRadius = 0.08 + 0.26 * pRatio * localOpen;
+    const flareAngle = lerp(0.18, 0.35 + 1.12 * pRatio, localOpen);
+    const cupCurve = Math.sin(v * PI) * 0.20 * (1 - U * U * 0.75);
+
+    const rDist = baseRadius + v * (0.48 + 0.34 * pRatio) * Math.sin(flareAngle) - cupCurve * Math.cos(flareAngle);
+    const height = 0.04 + v * (0.52 + 0.24 * (1 - pRatio)) * Math.cos(flareAngle) + cupCurve * Math.sin(flareAngle);
+
+    const angularSpan = (U * widthEnv) / Math.max(0.25, rDist * 0.88);
+    const theta = baseAzimuth + angularSpan;
+
+    const isSeedPod = petalIdx < 4 && v < 0.38;
+    const vShade = clamp(v * (1 - 0.20 * U * U), 0, 1);
+
+    return {
+      x: rDist * Math.cos(theta),
+      y: height,
+      z: rDist * Math.sin(theta),
+      u: u,
+      v: vShade,
+      part: isSeedPod ? 'stamen' : 'petal',
+      layer: petalIdx,
+      petalRatio: pRatio,
+      r: isSeedPod ? 0.96 : clamp(0.45 + 0.52 * Math.pow(vShade, 0.7), 0.25, 1.0),
+      g: isSeedPod ? 0.82 : clamp(0.18 + 0.55 * Math.pow(vShade, 2.2), 0.10, 0.85),
+      b: isSeedPod ? 0.22 : clamp(0.38 + 0.50 * Math.pow(vShade, 1.4), 0.20, 0.95)
+    };
+  }
+
+  // ============================================================================
+  // MODEL 5: CELESTIAL DAHLIA (48 Quilled Golden-Angle Petals)
+  // ============================================================================
+  function evalDahliaPetalPoint(u, v, petalIdx, totalPetals, bloom) {
+    const goldenAngle = 2.399963229728653;
+    const pRatio = petalIdx / (totalPetals - 1);
+    const baseAzimuth = petalIdx * goldenAngle;
+
+    const U = u * 2 - 1;
+    // Narrower quilled tubular-tipped petals
+    const widthEnv = Math.sin(Math.pow(v, 0.65) * PI * 0.92) * (0.24 + 0.28 * pRatio);
+    const localOpen = smoothstep(0.0, 0.92, bloom * (0.32 + 0.78 * pRatio));
+
+    const baseRadius = 0.03 + 0.34 * pRatio * localOpen;
+    const flareAngle = lerp(0.15, 0.22 + 1.25 * pRatio, localOpen);
+    const quillCurl = (U * U) * 0.08 * Math.sin(v * PI);
+
+    const rDist = baseRadius + v * (0.36 + 0.42 * pRatio) * Math.sin(flareAngle);
+    const height = 0.06 + v * (0.48 + 0.18 * (1 - pRatio)) * Math.cos(flareAngle) + quillCurl - pRatio * 0.16 * localOpen;
+
+    const angularSpan = (U * widthEnv) / Math.max(0.22, rDist * 0.9);
+    const theta = baseAzimuth + angularSpan;
+
+    const isCore = petalIdx < 7 && v < 0.42;
+    const vShade = clamp(v * (1 - 0.15 * U * U), 0, 1);
+
+    return {
+      x: rDist * Math.cos(theta),
+      y: height,
+      z: rDist * Math.sin(theta),
+      u: u,
+      v: vShade,
+      part: isCore ? 'stamen' : 'petal',
+      layer: petalIdx,
+      petalRatio: pRatio,
+      r: isCore ? 0.99 : clamp(0.32 + 0.66 * Math.pow(vShade, 0.8), 0.18, 1.0),
+      g: isCore ? 0.76 : clamp(0.06 + 0.42 * Math.pow(vShade, 3.5), 0.03, 0.65),
+      b: isCore ? 0.16 : clamp(0.14 + 0.48 * Math.pow(vShade, 2.0), 0.06, 0.72)
     };
   }
 
@@ -522,6 +608,32 @@
           }
         }
       }
+    } else if (model === 'lotus') {
+      const totalPetals = 24;
+      const pU = Math.max(14, Math.round(22 * Math.sqrt(density)));
+      const pV = Math.max(14, Math.round(22 * Math.sqrt(density)));
+      for (let p = 0; p < totalPetals; p++) {
+        for (let iu = 0; iu < pU; iu++) {
+          const u = (iu + 0.5) / pU;
+          for (let iv = 0; iv < pV; iv++) {
+            const v = (iv + 0.5) / pV;
+            appendPointWithNormal(points, (uu, vv) => evalLotusPetalPoint(uu, vv, p, totalPetals, bloom), u, v, thornDetail);
+          }
+        }
+      }
+    } else if (model === 'dahlia') {
+      const totalPetals = 48;
+      const pU = Math.max(10, Math.round(16 * Math.sqrt(density)));
+      const pV = Math.max(12, Math.round(18 * Math.sqrt(density)));
+      for (let p = 0; p < totalPetals; p++) {
+        for (let iu = 0; iu < pU; iu++) {
+          const u = (iu + 0.5) / pU;
+          for (let iv = 0; iv < pV; iv++) {
+            const v = (iv + 0.5) / pV;
+            appendPointWithNormal(points, (uu, vv) => evalDahliaPetalPoint(uu, vv, p, totalPetals, bloom), u, v, thornDetail);
+          }
+        }
+      }
     }
 
     // 2. Sample 5 Calyx Sepals (shared across all models, reflexes with bloom)
@@ -606,6 +718,8 @@
     evalCortesPetal,
     evalNylanderRosePoint,
     evalFibonacciPetalPoint,
+    evalLotusPetalPoint,
+    evalDahliaPetalPoint,
     evalSepalPoint,
     evalSerratedLeafPoint,
     evalStemAndReceptacle,

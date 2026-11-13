@@ -34,30 +34,30 @@
       transformColor(r, g, b, part, lum, rim, spec) {
         if (part === 'petal') {
           return [
-            clamp(Math.round((r * 235 + rim * 65 + spec * 140) * (0.32 + 0.88 * lum)), 18, 255),
-            clamp(Math.round((g * 145 + rim * 35 + spec * 165) * (0.20 + 0.85 * lum)), 4, 245),
-            clamp(Math.round((b * 185 + rim * 55 + spec * 175) * (0.25 + 0.85 * lum)), 10, 250)
+            clamp(Math.round((r * 248 + rim * 75 + spec * 150) * (0.38 + 0.86 * lum)), 28, 255),
+            clamp(Math.round((g * 155 + rim * 42 + spec * 175) * (0.24 + 0.85 * lum)), 6, 248),
+            clamp(Math.round((b * 195 + rim * 62 + spec * 185) * (0.28 + 0.85 * lum)), 14, 252)
           ];
         }
         if (part === 'stamen') {
           return [
-            clamp(Math.round(255 * lum + spec * 90), 60, 255),
-            clamp(Math.round(205 * lum + spec * 80), 40, 255),
-            clamp(Math.round(65 * lum + spec * 90), 15, 220)
+            clamp(Math.round(255 * lum + spec * 95), 75, 255),
+            clamp(Math.round(215 * lum + spec * 85), 50, 255),
+            clamp(Math.round(75 * lum + spec * 95), 18, 230)
           ];
         }
         if (part === 'thorn') {
           return [
-            clamp(Math.round((r * 210 + rim * 45) * lum), 25, 235),
-            clamp(Math.round((g * 140 + rim * 25) * lum), 15, 190),
-            clamp(Math.round((b * 120) * lum), 10, 150)
+            clamp(Math.round((r * 225 + rim * 55) * (0.25 + 0.85 * lum)), 35, 245),
+            clamp(Math.round((g * 155 + rim * 35) * (0.25 + 0.85 * lum)), 20, 205),
+            clamp(Math.round((b * 130) * (0.25 + 0.85 * lum)), 12, 165)
           ];
         }
         // stem, sepal, leaf
         return [
-          clamp(Math.round((r * 165 + rim * 35 + spec * 60) * (0.28 + 0.82 * lum)), 8, 210),
-          clamp(Math.round((g * 225 + rim * 55 + spec * 80) * (0.30 + 0.85 * lum)), 20, 250),
-          clamp(Math.round((b * 155 + rim * 35 + spec * 60) * (0.25 + 0.80 * lum)), 10, 200)
+          clamp(Math.round((r * 175 + rim * 40 + spec * 65) * (0.34 + 0.82 * lum)), 12, 220),
+          clamp(Math.round((g * 240 + rim * 65 + spec * 85) * (0.36 + 0.85 * lum)), 28, 255),
+          clamp(Math.round((b * 165 + rim * 40 + spec * 65) * (0.30 + 0.80 * lum)), 14, 210)
         ];
       }
     },
@@ -352,9 +352,10 @@
       // Camera spherical / orbit state
       this.camYaw = typeof opts.camYaw === 'number' ? opts.camYaw : 0.35;
       this.camPitch = typeof opts.camPitch === 'number' ? opts.camPitch : 0.28;
-      this.camDist = typeof opts.camDist === 'number' ? opts.camDist : 3.25;
+      this.camDist = typeof opts.camDist === 'number' ? opts.camDist : 2.95;
       this.camPanX = 0;
-      this.camPanY = 0.18; // Center slightly below flower head so full plant is framed
+      this.camPanY = 0.20; // Center slightly below flower head so full plant is framed
+      this.viewportOffsetX = typeof opts.viewportOffsetX === 'number' ? opts.viewportOffsetX : 0;
 
       // Interactive cursor wind / light in normalized screen coords [-1, 1]
       this.pointerX = 0;
@@ -561,11 +562,13 @@
       const lightY = lyRaw / lLen;
       const lightZ = lzRaw / lLen;
 
-      // Aspect ratio compensation for monospace characters (typical char cell is ~0.52 width:height)
-      const charAspect = 0.52;
-      const fovScale = Math.min(cols * charAspect, rows) * 0.92;
+      // Aspect ratio compensation for monospace characters (typical char cell is ~0.55 width:height)
+      const charAspect = 0.55;
+      const fovScale = Math.min(cols * charAspect, rows) * 1.02;
       const halfCols = cols * 0.5;
       const halfRows = rows * 0.5;
+      const centerCol = cols * (0.5 + (this.viewportOffsetX || 0));
+      const centerRow = rows * 0.5;
 
       // Global wind sway parameters
       const wind = this.windStrength;
@@ -607,9 +610,9 @@
         const z1 = -pxWorld * sinYaw + pzWorld * cosYaw;
         const y1 = pyWorld;
 
-        // Rotate Pitch around X
-        const y2 = y1 * cosPitch - z1 * sinPitch;
-        const z2 = y1 * sinPitch + z1 * cosPitch;
+        // Rotate Pitch around X (positive camPitch tilts bloom toward viewer so we look into the rose cup)
+        const y2 = y1 * cosPitch + z1 * sinPitch;
+        const z2 = -y1 * sinPitch + z1 * cosPitch;
         const x2 = x1;
 
         const depth = z2 + camDist;
@@ -617,8 +620,8 @@
 
         // Perspective projection
         const invZ = fovScale / depth;
-        let sx = halfCols + (x2 * invZ) / charAspect;
-        let sy = halfRows - y2 * invZ;
+        let sx = centerCol + (x2 * invZ) / charAspect;
+        let sy = centerRow - y2 * invZ;
 
         // Subtle organic cursor breeze & shimmer (bounded so it never tears holes in the surface)
         let cursorSpecBoost = 0;
@@ -647,17 +650,17 @@
         const nz1 = -nx * sinYaw + nz * cosYaw;
         const ny1 = ny;
 
-        const ny2 = ny1 * cosPitch - nz1 * sinPitch;
-        const nz2 = ny1 * sinPitch + z1 * 0 + nz1 * cosPitch;
+        const ny2 = ny1 * cosPitch + nz1 * sinPitch;
+        const nz2 = -ny1 * sinPitch + nz1 * cosPitch;
         const nx2 = nx1;
 
         // Two-sided surface lighting (rose petals are thin translucent membranes)
         const ndotlRaw = nx2 * lightX + ny2 * lightY + nz2 * lightZ;
-        const ndotl = Math.abs(ndotlRaw) * 0.72 + Math.max(0, -nz2) * 0.28;
+        const ndotl = Math.abs(ndotlRaw) * 0.74 + Math.max(0, -nz2) * 0.26;
 
         // Rim / fresnel backlight when surface normal is perpendicular to view vector (0,0,-1)
         const vFactor = typeof vParam === 'number' ? vParam : 0.75;
-        const rim = clamp(Math.pow(clamp(1.0 - Math.abs(nz2), 0, 1), 2.1) + Math.pow(vFactor, 6) * 0.35 + cursorSpecBoost * 0.5, 0, 1);
+        const rim = clamp(Math.pow(clamp(1.0 - Math.abs(nz2), 0, 1), 1.85) + Math.pow(vFactor, 3.8) * 0.42 + cursorSpecBoost * 0.5, 0, 1);
 
         // Specular highlight (Blinn-Phong half-vector with view vector (0,0,-1))
         const hx = lightX;
@@ -671,9 +674,9 @@
         }
 
         // Anatomical velvet ambient occlusion: deep inner petal bases are darker, curled upper lips are luminous
-        const ao = partCode === PART_CODES.petal ? (0.36 + 0.64 * Math.pow(vFactor, 0.75)) : 0.85;
-        const ambient = 0.14;
-        const lum = clamp((ambient + ndotl * 0.68 + rim * 0.28) * ao + spec * 0.55, 0.06, 1.0);
+        const ao = partCode === PART_CODES.petal ? (0.48 + 0.52 * Math.pow(vFactor, 0.65)) : 0.88;
+        const ambient = 0.22;
+        const lum = clamp((ambient + ndotl * 0.72 + rim * 0.34) * ao + spec * 0.58, 0.10, 1.0);
 
         const idx = row * cols + col;
         if (depth < zBuf[idx]) {
@@ -941,7 +944,7 @@
               const zD = zBuf[idxD];
 
               // Genuine overlapping petal lip discontinuity
-              const creaseThresh = 0.068;
+              const creaseThresh = 0.032;
               if (
                 (layerBuf[idxL] !== layer && z < zL - creaseThresh) ||
                 (layerBuf[idxR] !== layer && z < zR - creaseThresh) ||
@@ -963,11 +966,11 @@
           }
 
           if (isPetalCrease || isSilhouetteEdge) {
-            rim = clamp(rim + 0.42, 0, 1);
-            lum = clamp(lum + 0.22, 0, 1);
+            rim = clamp(rim + 0.45, 0, 1);
+            lum = clamp(lum + 0.25, 0, 1);
           } else if (isOccludedFold) {
             // Deep velvet shadow right underneath an overlapping petal!
-            lum *= 0.62;
+            lum *= 0.60;
           }
 
           if (wireframeOnly && !isPetalCrease && !isSilhouetteEdge && spec < 0.5) {
@@ -1030,17 +1033,46 @@
      */
     toAsciiString(trimEmptyLines) {
       const lines = [];
+      const rowHasPlant = [];
       for (let r = 0; r < this.rows; r++) {
         const offset = r * this.cols;
         let line = '';
+        let hasPlant = false;
         for (let c = 0; c < this.cols; c++) {
-          line += this.charGrid[offset + c] || ' ';
+          const idx = offset + c;
+          line += this.charGrid[idx] || ' ';
+          const p = this.partBuf[idx];
+          if (p > 0 && p !== PART_CODES.pollen) {
+            hasPlant = true;
+          }
         }
         lines.push(line.replace(/\s+$/, ''));
+        rowHasPlant.push(hasPlant);
       }
       if (trimEmptyLines) {
-        while (lines.length > 0 && lines[0].trim().length === 0) lines.shift();
-        while (lines.length > 0 && lines[lines.length - 1].trim().length === 0) lines.pop();
+        while (lines.length > 0 && (!rowHasPlant[0] && lines[0].trim().length <= 3)) {
+          lines.shift();
+          rowHasPlant.shift();
+        }
+        while (lines.length > 0 && (!rowHasPlant[lines.length - 1] && lines[lines.length - 1].trim().length <= 3)) {
+          lines.pop();
+          rowHasPlant.pop();
+        }
+        // Strip excessive common left-side blank margin so the rose is cleanly framed
+        let minLead = Infinity;
+        for (let i = 0; i < lines.length; i++) {
+          const ln = lines[i];
+          if (ln.trim().length === 0) continue;
+          const m = ln.match(/^ +/);
+          const lead = m ? m[0].length : 0;
+          if (lead < minLead) minLead = lead;
+        }
+        if (Number.isFinite(minLead) && minLead > 2) {
+          const strip = minLead - 2;
+          for (let i = 0; i < lines.length; i++) {
+            lines[i] = lines[i].length > strip ? lines[i].slice(strip) : '';
+          }
+        }
       }
       return lines.join('\n');
     }
@@ -1054,26 +1086,27 @@
       const cols = this.cols;
       const rows = this.rows;
 
-      // 1. Background fill with subtle radial atmospheric glow
+      // 1. Background fill with subtle radial atmospheric glow centered behind the rose
       ctx.fillStyle = palette.bg;
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-      const cx = canvasWidth * 0.5;
-      const cy = canvasHeight * 0.46;
-      const gradRadius = Math.max(canvasWidth, canvasHeight) * 0.52;
-      const bgGrad = ctx.createRadialGradient(cx, cy, gradRadius * 0.04, cx, cy, gradRadius);
-      bgGrad.addColorStop(0, palette.glowColor.replace(/[\d.]+\)$/, `${0.11 * this.glowIntensity + this.audioEnergy * 0.08})`));
-      bgGrad.addColorStop(0.55, palette.glowColor.replace(/[\d.]+\)$/, `${0.03 * this.glowIntensity})`));
+      const cx = canvasWidth * (0.5 + (this.viewportOffsetX || 0));
+      const cy = canvasHeight * 0.44;
+      const gradRadius = Math.max(canvasWidth, canvasHeight) * 0.54;
+      const bgGrad = ctx.createRadialGradient(cx, cy, gradRadius * 0.03, cx, cy, gradRadius);
+      bgGrad.addColorStop(0, palette.glowColor.replace(/[\d.]+\)$/, `${0.16 * this.glowIntensity + this.audioEnergy * 0.09})`));
+      bgGrad.addColorStop(0.48, palette.glowColor.replace(/[\d.]+\)$/, `${0.045 * this.glowIntensity})`));
       bgGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-      // 2. Calculate optimal cell dimensions & font size
+      // 2. Calculate optimal cell dimensions & font size (1:1 aspect-matched monospace grid)
       const cellW = canvasWidth / cols;
       const cellH = canvasHeight / rows;
-      const fontSize = Math.max(7, Math.floor(Math.min(cellH * 0.96, cellW * 1.82)));
+      const fontSize = Math.max(8, Math.floor(Math.min(cellH * 0.98, cellW * 1.80)));
+      const fontStack = '"JetBrains Mono", "Space Mono", "Fira Code", "Consolas", monospace';
 
-      ctx.font = `600 ${fontSize}px "JetBrains Mono", "Space Mono", "Fira Code", "Consolas", monospace`;
+      ctx.font = `600 ${fontSize}px ${fontStack}`;
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'center';
 
@@ -1084,11 +1117,15 @@
       const specBuf = this.specBuf;
       const lumBuf = this.lumBuf;
 
-      // 3. Optional soft bloom under-layer for bright specular/rim cells
-      if (this.glowIntensity > 0.15) {
+      // 3. Soft optical phosphor glyph-halo pass (uses fillText + shadowBlur, NEVER rectangular fillRect boxes!)
+      if (this.glowIntensity > 0.12) {
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
-        const glowAlpha = clamp(this.glowIntensity * 0.28 + this.audioEnergy * 0.15, 0.05, 0.45);
+        const haloFontSize = Math.max(9, Math.round(fontSize * 1.14));
+        ctx.font = `700 ${haloFontSize}px ${fontStack}`;
+        ctx.shadowColor = palette.accent;
+        ctx.shadowBlur = Math.round(fontSize * 0.85 * this.glowIntensity);
+        const glowAlpha = clamp(this.glowIntensity * 0.34 + this.audioEnergy * 0.16, 0.08, 0.52);
         let lastGlowRgb = -1;
         for (let r = 0; r < rows; r++) {
           const rowOff = r * cols;
@@ -1097,7 +1134,7 @@
             const idx = rowOff + c;
             const ch = charGrid[idx];
             if (ch === ' ') continue;
-            if (lumBuf[idx] > 0.72 || specBuf[idx] > 0.4) {
+            if (lumBuf[idx] > 0.72 || specBuf[idx] > 0.38) {
               const px = (c + 0.5) * cellW;
               const cr = colorR[idx];
               const cg = colorG[idx];
@@ -1107,7 +1144,7 @@
                 lastGlowRgb = packed;
                 ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${glowAlpha})`;
               }
-              ctx.fillRect(px - cellW * 0.85, py - cellH * 0.65, cellW * 1.7, cellH * 1.3);
+              ctx.fillText(ch, px, py);
             }
           }
         }
@@ -1115,6 +1152,7 @@
       }
 
       // 4. Crisp foreground ASCII glyphs
+      ctx.font = `600 ${fontSize}px ${fontStack}`;
       let lastFgRgb = -1;
       for (let r = 0; r < rows; r++) {
         const rowOff = r * cols;
@@ -1137,9 +1175,9 @@
         }
       }
 
-      // 5. Subtle CRT scanline & vignette post-processing
+      // 5. Subtle CRT scanline post-processing
       if (this.scanlines) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.16)';
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.13)';
         for (let y = 0; y < canvasHeight; y += 3) {
           ctx.fillRect(0, y, canvasWidth, 1);
         }

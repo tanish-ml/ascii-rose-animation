@@ -105,9 +105,9 @@
       canvas.width = Math.floor(w * dpr);
       canvas.height = Math.floor(h * dpr);
 
-      const charAspect = 0.52;
+      const charAspect = 0.55;
       const cols = state.baseCols;
-      const rows = Math.max(24, Math.round((cols * (h / Math.max(1, w))) / charAspect));
+      const rows = Math.max(24, Math.round(cols * (h / Math.max(1, w)) * charAspect));
       engine.resizeGrid(cols, rows);
     }
 
@@ -309,13 +309,37 @@
     const btnGust = document.getElementById('btn-wind-gust');
     if (btnGust) btnGust.addEventListener('click', triggerGustAction);
 
-    // Audio Synth Toggle Button
+    // Default to Zen Mode on load
+    document.body.classList.add('zen-mode');
+
+    // Audio Synth Toggle Button (Default: ON, auto-unlocks on first user gesture)
     const btnAudio = document.getElementById('btn-audio');
+    let synthWanted = true;
+    function syncAudioButton(active) {
+      if (!btnAudio) return;
+      btnAudio.classList.toggle('active', active);
+      btnAudio.textContent = active ? '🔊 Synth: ON' : '🔈 Synth: OFF';
+    }
+    syncAudioButton(true);
+
+    function unlockAudioOnGesture() {
+      if (synthWanted && !audio.isPlaying) {
+        const started = audio.toggle();
+        syncAudioButton(started);
+      }
+      if (audio.isPlaying || !synthWanted) {
+        window.removeEventListener('pointerdown', unlockAudioOnGesture);
+        window.removeEventListener('keydown', unlockAudioOnGesture);
+      }
+    }
+    window.addEventListener('pointerdown', unlockAudioOnGesture, { passive: true });
+    window.addEventListener('keydown', unlockAudioOnGesture, { passive: true });
+
     if (btnAudio) {
       btnAudio.addEventListener('click', () => {
         const active = audio.toggle();
-        btnAudio.classList.toggle('active', active);
-        btnAudio.textContent = active ? '🔊 Synth: ON' : '🔈 Synth: OFF';
+        synthWanted = active;
+        syncAudioButton(active);
         showToast(active ? '🔊 Generative Lydian botanical synth active' : '🔈 Ambient synth muted');
       });
     }
@@ -587,6 +611,10 @@
         modelCards[1].click();
       } else if (k === '3' && modelCards[2]) {
         modelCards[2].click();
+      } else if (k === '4' && modelCards[3]) {
+        modelCards[3].click();
+      } else if (k === '5' && modelCards[4]) {
+        modelCards[4].click();
       }
     });
 

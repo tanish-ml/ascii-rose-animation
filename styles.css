@@ -235,7 +235,7 @@ html, body {
 .quick-actions {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
@@ -525,9 +525,10 @@ html, body {
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   max-width: 100%;
   overflow-x: auto;
+  scrollbar-width: none;
   background: var(--panel-bg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -535,6 +536,10 @@ html, body {
   border-radius: var(--radius-md);
   padding: 7px 10px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+}
+
+.lifecycle-bar::-webkit-scrollbar {
+  display: none;
 }
 
 .phase-btn {
