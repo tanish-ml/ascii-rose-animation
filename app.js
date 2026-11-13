@@ -1,5 +1,5 @@
 /**
- * ROSA — Minimalist 3D ASCII Flora Controller
+ * ROSA — Pure Art Minimalist Controller (120 FPS Glyph Atlas)
  */
 (function () {
   'use strict';
@@ -17,17 +17,17 @@
     const isMobile = window.innerWidth <= 640;
 
     const engine = new RoseRenderer.AsciiRoseEngine({
-      cols: isMobile ? 72 : 100,
+      cols: isMobile ? 64 : 88,
       rows: 40,
       model: 'cortes',
       palette: 'crimson',
       ramp: 'botanical',
       bloom: 0.92,
-      density: 0.78,
-      thornDetail: 0.75,
+      density: 0.55,
+      thornDetail: 0.72,
       windStrength: 0.35,
       glowIntensity: 0.65,
-      scanlines: true
+      scanlines: false
     });
 
     const audio = new RoseAudio.BotanicalAudioEngine();
@@ -36,9 +36,8 @@
 
     const state = {
       isPlaying: true,
-      targetBloom: 0.92,
       rotSpeed: 0.42,
-      baseCols: isMobile ? 72 : 100,
+      baseCols: isMobile ? 64 : 88,
       isDragging: false,
       dragMode: 'orbit',
       lastMouseX: 0,
@@ -52,13 +51,12 @@
     window.__ROSA_APP__ = { engine, audio, state };
 
     function updateCanvasAndGridSize() {
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const w = window.innerWidth;
       const h = window.innerHeight;
-      canvas.width = Math.floor(w * dpr);
-      canvas.height = Math.floor(h * dpr);
+      canvas.width = w;
+      canvas.height = h;
 
-      state.baseCols = w <= 640 ? 72 : 100;
+      state.baseCols = w <= 640 ? 64 : 88;
       const charAspect = 0.55;
       const cols = state.baseCols;
       const rows = Math.max(24, Math.round(cols * (h / Math.max(1, w)) * charAspect));
@@ -77,7 +75,7 @@
       clearTimeout(toastTimer);
       toastTimer = setTimeout(() => {
         toastEl.classList.remove('visible');
-      }, 1800);
+      }, 1600);
     }
 
     function applyThemeAccent(paletteKey) {
@@ -89,7 +87,6 @@
 
     // Species Buttons
     const modelCards = document.querySelectorAll('.model-card');
-    const speciesLabel = document.getElementById('specimen-model-label');
     modelCards.forEach((card) => {
       card.addEventListener('click', () => {
         const m = card.dataset.model;
@@ -97,7 +94,6 @@
         engine.model = m;
         engine.rebuildGeometryIfNeeded(true);
         modelCards.forEach((c) => c.classList.toggle('active', c.dataset.model === m));
-        if (speciesLabel) speciesLabel.textContent = card.textContent.trim();
         audio.playChime(0, 0.45);
       });
     });
@@ -111,16 +107,6 @@
         engine.paletteKey = key;
         applyThemeAccent(key);
         showToast(RoseRenderer.PALETTES[key].name);
-      });
-    }
-
-    // Bloom Slider
-    const bloomSlider = document.getElementById('slider-bloom');
-    if (bloomSlider) {
-      bloomSlider.addEventListener('input', () => {
-        const v = parseFloat(bloomSlider.value);
-        state.targetBloom = v;
-        engine.bloom = v;
       });
     }
 
@@ -313,7 +299,7 @@
       }
     });
 
-    // 60 FPS Main Loop
+    // Main Animation Loop
     function animate(now) {
       requestAnimationFrame(animate);
 
@@ -330,12 +316,6 @@
           state.velPitch *= Math.pow(0.06, dt);
         }
         engine.stepPhysics(dt, state.elapsedTime);
-      }
-
-      const bloomDelta = state.targetBloom - engine.bloom;
-      if (Math.abs(bloomDelta) > 1e-4) {
-        engine.bloom += bloomDelta * Math.min(1, dt * 5.5);
-        if (bloomSlider) bloomSlider.value = engine.bloom.toFixed(2);
       }
 
       engine.audioEnergy = audio.update(dt, engine.bloom, engine.windStrength);

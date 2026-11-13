@@ -1,16 +1,15 @@
 /* ============================================================================
-   ROSA — Minimalist 3D ASCII Flora Stylesheet
+   ROSA — Pure Art Minimalist Stylesheet
    ============================================================================ */
 
 :root {
   --bg-void: #060307;
-  --panel-bg: rgba(14, 10, 18, 0.72);
-  --panel-border: rgba(255, 255, 255, 0.12);
+  --panel-bg: rgba(14, 10, 18, 0.65);
+  --panel-border: rgba(255, 255, 255, 0.10);
   --text-primary: #f5eef2;
-  --text-secondary: rgba(245, 238, 242, 0.65);
+  --text-secondary: rgba(245, 238, 242, 0.60);
   --accent: #ff3366;
-  --accent-glow: rgba(255, 51, 102, 0.32);
-  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --accent-glow: rgba(255, 51, 102, 0.28);
   --font-mono: "JetBrains Mono", "Space Mono", Consolas, monospace;
 }
 
@@ -33,7 +32,6 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Fullscreen Canvas */
 #viewport-container {
   position: fixed;
   inset: 0;
@@ -55,36 +53,7 @@ html, body {
   touch-action: none;
 }
 
-/* Minimal Top-Left Wordmark */
-.hud-top {
-  position: fixed;
-  top: 20px;
-  left: 24px;
-  z-index: 10;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  pointer-events: none;
-  opacity: 0.75;
-  transition: opacity 0.35s ease;
-}
-
-.brand-title {
-  font-family: var(--font-serif);
-  font-size: 20px;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  color: var(--text-primary);
-}
-
-.brand-sep,
-.brand-species {
-  font-size: 11px;
-  color: var(--text-secondary);
-  letter-spacing: 0.08em;
-}
-
-/* Compact Bottom-Center Floating Pill */
+/* Whisper-Quiet Floating Pill */
 .minimal-dock {
   position: fixed;
   bottom: 22px;
@@ -93,22 +62,22 @@ html, body {
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   max-width: calc(100vw - 24px);
-  padding: 6px 12px;
+  padding: 6px 10px;
   background: var(--panel-bg);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--panel-border);
   border-radius: 999px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.48);
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 .species-pills {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -120,7 +89,7 @@ html, body {
 .model-card {
   appearance: none;
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -140,12 +109,11 @@ html, body {
   color: #060204;
   background: var(--accent);
   font-weight: 600;
-  box-shadow: 0 0 14px var(--accent-glow);
 }
 
 .pill-divider {
   width: 1px;
-  height: 20px;
+  height: 18px;
   background: var(--panel-border);
   flex-shrink: 0;
 }
@@ -153,7 +121,7 @@ html, body {
 .pill-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-shrink: 0;
 }
 
@@ -175,83 +143,44 @@ html, body {
 
 .icon-btn:hover {
   border-color: var(--accent);
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .icon-btn.active {
   border-color: var(--accent);
-  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 .palette-dot {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
   background: var(--accent);
   border: 1.5px solid rgba(255, 255, 255, 0.5);
 }
 
-.bloom-control {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 4px;
-}
-
-.bloom-label {
-  font-size: 10px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.hud-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 72px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.16);
-  border-radius: 2px;
-  outline: none;
-}
-
-.hud-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--accent);
-  cursor: pointer;
-  box-shadow: 0 0 8px var(--accent);
-}
-
 /* Zen Mode */
-body.zen-mode .hud-top,
 body.zen-mode .minimal-dock {
   opacity: 0;
   pointer-events: none;
-}
-
-body.zen-mode .minimal-dock {
   transform: translateX(-50%) translateY(14px);
 }
 
 .zen-exit-pill {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
+  bottom: 18px;
+  right: 18px;
   z-index: 20;
   appearance: none;
   background: var(--panel-bg);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: var(--text-secondary);
   border: 1px solid var(--panel-border);
   border-radius: 999px;
-  padding: 8px 14px;
+  width: 38px;
+  height: 38px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 14px;
+  letter-spacing: 1px;
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
@@ -259,7 +188,7 @@ body.zen-mode .minimal-dock {
 }
 
 body.zen-mode .zen-exit-pill {
-  opacity: 0.65;
+  opacity: 0.45;
   pointer-events: auto;
 }
 
@@ -269,22 +198,21 @@ body.zen-mode .zen-exit-pill {
   border-color: var(--accent);
 }
 
-/* Toast Notification */
 .toast-notification {
   position: fixed;
-  top: 22px;
+  top: 20px;
   left: 50%;
-  transform: translateX(-50%) translateY(-10px);
+  transform: translateX(-50%) translateY(-8px);
   z-index: 30;
   background: var(--accent);
   color: #060204;
   font-weight: 600;
-  padding: 6px 16px;
+  padding: 5px 14px;
   border-radius: 999px;
   font-size: 11px;
   opacity: 0;
   pointer-events: none;
-  transition: all 0.22s ease;
+  transition: all 0.2s ease;
 }
 
 .toast-notification.visible {
@@ -292,13 +220,7 @@ body.zen-mode .zen-exit-pill {
   transform: translateX(-50%) translateY(0);
 }
 
-/* Mobile Friendly */
-@media (max-width: 720px) {
-  .hud-top {
-    top: 14px;
-    left: 16px;
-  }
-
+@media (max-width: 640px) {
   .minimal-dock {
     bottom: 14px;
     flex-direction: column;
@@ -310,7 +232,7 @@ body.zen-mode .zen-exit-pill {
 
   .species-pills {
     width: 100%;
-    justify-content: flex-start;
+    justify-content: space-between;
   }
 
   .pill-divider {
@@ -319,21 +241,11 @@ body.zen-mode .zen-exit-pill {
 
   .pill-controls {
     width: 100%;
-    justify-content: space-between;
+    justify-content: space-around;
   }
 
   .icon-btn {
     width: 38px;
     height: 38px;
-  }
-
-  .hud-slider {
-    width: 90px;
-  }
-
-  .zen-exit-pill {
-    bottom: 14px;
-    right: 14px;
-    padding: 10px 16px;
   }
 }

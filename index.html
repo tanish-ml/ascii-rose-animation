@@ -3,37 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ROSA — 3D Parametric ASCII Flora</title>
-  <meta name="description" content="Minimalist real-time 3D Z-buffered ASCII flower animation with procedural WebAudio synthesis." />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23060307' stroke='%23ff3366' stroke-width='2'/%3E%3Cpath d='M32 12 C42 18, 48 28, 32 42 C16 28, 22 18, 32 12 Z' fill='%23ff3366' opacity='0.85'/%3E%3Cpath d='M32 42 L32 56 M32 49 L40 45 M32 51 L24 47' stroke='%2322c55e' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E" />
+  <title>ROSA</title>
+  <meta name="description" content="Living ASCII flora in 3D space." />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23060307' stroke='%23ff3366' stroke-width='2'/%3E%3Cpath d='M32 12 C42 18, 48 28, 32 42 C16 28, 22 18, 32 12 Z' fill='%23ff3366' opacity='0.85'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body class="zen-mode">
 
-  <!-- FULLSCREEN 3D Z-BUFFERED ASCII CANVAS -->
-  <main id="viewport-container" aria-label="Interactive 3D ASCII Flower Viewport">
+  <!-- FULLSCREEN LIVING ASCII FLORA -->
+  <main id="viewport-container" aria-label="Interactive ASCII Flora">
     <canvas id="ascii-canvas"></canvas>
   </main>
 
-  <!-- TOAST NOTIFICATION -->
   <div id="toast-notification" class="toast-notification" role="status" aria-live="polite"></div>
 
-  <!-- MINIMAL TOP-LEFT WORDMARK -->
-  <header class="hud-top">
-    <span class="brand-title">ROSA</span>
-    <span class="brand-sep">·</span>
-    <span id="specimen-model-label" class="brand-species">Cortés</span>
-  </header>
-
-  <!-- MINIMAL BOTTOM-CENTER FLOATING PILL -->
+  <!-- WHISPER-QUIET FLOATING PILL -->
   <nav id="minimal-dock" class="minimal-dock" aria-label="Flora Controls">
-    <div class="species-pills" role="group" aria-label="Flower Species">
-      <button type="button" class="model-card active" data-model="cortes">Cortés</button>
-      <button type="button" class="model-card" data-model="nylander">Nylander</button>
-      <button type="button" class="model-card" data-model="fibonacci">Fibonacci</button>
+    <div class="species-pills" role="group" aria-label="Flower">
+      <button type="button" class="model-card active" data-model="cortes">Rose</button>
+      <button type="button" class="model-card" data-model="nylander">Spiral</button>
+      <button type="button" class="model-card" data-model="fibonacci">Tudor</button>
       <button type="button" class="model-card" data-model="lotus">Lotus</button>
       <button type="button" class="model-card" data-model="dahlia">Dahlia</button>
     </div>
@@ -41,23 +33,17 @@
     <span class="pill-divider" aria-hidden="true"></span>
 
     <div class="pill-controls">
-      <button type="button" id="btn-palette" class="icon-btn" title="Cycle Color Palette">
+      <button type="button" id="btn-palette" class="icon-btn" title="Palette">
         <span id="palette-dot" class="palette-dot"></span>
       </button>
-
-      <label class="bloom-control" title="Bloom Unfurl">
-        <span class="bloom-label">Bloom</span>
-        <input type="range" id="slider-bloom" class="hud-slider" min="0.08" max="1.18" step="0.02" value="0.92" />
-      </label>
-
-      <button type="button" id="btn-wind-gust" class="icon-btn" title="Wind Gust (W)">🌬️</button>
-      <button type="button" id="btn-audio" class="icon-btn active" title="Toggle Synth (M)">🔊</button>
-      <button type="button" id="btn-zen" class="icon-btn" title="Hide UI (H)">👁️</button>
+      <button type="button" id="btn-wind-gust" class="icon-btn" title="Wind">🌬️</button>
+      <button type="button" id="btn-audio" class="icon-btn active" title="Sound">🔊</button>
+      <button type="button" id="btn-zen" class="icon-btn" title="Hide">👁️</button>
     </div>
   </nav>
 
-  <!-- ZEN MODE EXIT PILL -->
-  <button type="button" id="btn-zen-exit" class="zen-exit-pill" title="Show Controls (H)">Controls</button>
+  <!-- SUBTLE ZEN TOGGLE -->
+  <button type="button" id="btn-zen-exit" class="zen-exit-pill" aria-label="Show Controls">···</button>
 
   <script src="rose-math.js"></script>
   <script src="ascii-renderer.js"></script>

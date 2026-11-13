@@ -414,6 +414,7 @@
       this.colorR = new Uint8Array(size);
       this.colorG = new Uint8Array(size);
       this.colorB = new Uint8Array(size);
+      this.shadeRow = new Uint8Array(size);
     }
 
     resizeGrid(cols, rows) {
@@ -627,6 +628,15 @@
       const pointerX = this.pointerX;
       const pointerY = this.pointerY;
 
+      // Precompute half-vector once per frame
+      const hxRaw = lightX;
+      const hyRaw = lightY;
+      const hzRaw = lightZ - 1.0;
+      const hLenInv = 1 / (Math.hypot(hxRaw, hyRaw, hzRaw) || 1);
+      const hxN = hxRaw * hLenInv;
+      const hyN = hyRaw * hLenInv;
+      const hzN = hzRaw * hLenInv;
+
       // Splat size: if grid is dense (>= 80 cols), splat horizontally to prevent monospace aspect gaps
       const useWideSplat = cols >= 80;
 
@@ -691,21 +701,24 @@
 
         // Rim / fresnel backlight when surface normal is perpendicular to view vector (0,0,-1)
         const vFactor = typeof vParam === 'number' ? vParam : 0.75;
-        const rim = clamp(Math.pow(clamp(1.0 - Math.abs(nz2), 0, 1), 1.85) + Math.pow(vFactor, 3.8) * 0.42 + cursorSpecBoost * 0.5, 0, 1);
+        const oneMinusNz = 1.0 - Math.abs(nz2);
+        const rimBase = oneMinusNz > 0 ? oneMinusNz * oneMinusNz : 0;
+        const v2 = vFactor * vFactor;
+        const v4 = v2 * v2;
+        const rim = clamp(rimBase + v4 * 0.42 + cursorSpecBoost * 0.5, 0, 1);
 
-        // Specular highlight (Blinn-Phong half-vector with view vector (0,0,-1))
-        const hx = lightX;
-        const hy = lightY;
-        const hz = lightZ - 1.0;
-        const hLen = Math.hypot(hx, hy, hz) || 1;
-        const ndoth = Math.abs(nx2 * (hx / hLen) + ny2 * (hy / hLen) + nz2 * (hz / hLen));
-        let spec = Math.pow(clamp(ndoth, 0, 1), 18) * 0.45 + cursorSpecBoost;
+        // Specular highlight (Blinn-Phong half-vector precomputed once per frame)
+        const ndoth = Math.abs(nx2 * hxN + ny2 * hyN + nz2 * hzN);
+        const s2 = ndoth * ndoth;
+        const s4 = s2 * s2;
+        const s16 = s4 * s4 * s4 * s4;
+        let spec = s16 * 0.45 + cursorSpecBoost;
         if (isDewdrop) {
-          spec = Math.max(spec, 0.95);
+          spec = spec > 0.95 ? spec : 0.95;
         }
 
         // Anatomical velvet ambient occlusion: deep inner petal bases are darker, curled upper lips are luminous
-        const ao = partCode === PART_CODES.petal ? (0.48 + 0.52 * Math.pow(vFactor, 0.65)) : 0.88;
+        const ao = partCode === PART_CODES.petal ? (0.48 + 0.52 * Math.sqrt(vFactor)) : 0.88;
         const ambient = 0.22;
         const lum = clamp((ambient + ndotl * 0.72 + rim * 0.34) * ao + spec * 0.58, 0.10, 1.0);
 
@@ -1044,6 +1057,14 @@
           }
 
           this.charGrid[idx] = ch;
+          const isFoliage = partCode >= PART_CODES.stem && partCode <= PART_CODES.sepal;
+          if (isFoliage) {
+            this.shadeRow[idx] = 12 + clamp(Math.floor(lum * 3.99), 0, 3);
+          } else if (partCode === PART_CODES.stamen || spec > 0.78) {
+            this.shadeRow[idx] = 11;
+          } else {
+            this.shadeRow[idx] = clamp(Math.floor(lum * 10.99), 0, 10);
+          }
 
           // Compute palette-transformed RGB
           const partName = CODE_TO_PART[partCode] || 'petal';
@@ -1165,63 +1186,115 @@
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
       }
 
-      // 2. Calculate optimal cell dimensions & font size (1:1 aspect-matched monospace grid)
+      // 2. Calculate optimal cell dimensions & font size
       const cellW = canvasWidth / cols;
       const cellH = canvasHeight / rows;
       const fontSize = Math.max(8, Math.floor(Math.min(cellH * 0.98, cellW * 1.80)));
 
-      ctx.font = `600 ${fontSize}px "JetBrains Mono", "Space Mono", "Fira Code", "Consolas", monospace`;
-      ctx.textBaseline = 'middle';
-      ctx.textAlign = 'center';
-
       const charGrid = this.charGrid;
-      const colorR = this.colorR;
-      const colorG = this.colorG;
-      const colorB = this.colorB;
+      const shadeRow = this.shadeRow;
 
-      // 3. Fast single-pass foreground ASCII glyphs (quantized RGB reduces fillStyle state switches)
-      let lastFgRgb = -1;
-      for (let r = 0; r < rows; r++) {
-        const rowOff = r * cols;
-        const py = (r + 0.5) * cellH;
-        for (let c = 0; c < cols; c++) {
-          const idx = rowOff + c;
-          const ch = charGrid[idx];
-          if (ch === ' ') continue;
+      // 3. GPU-blitted Offscreen Glyph Atlas (zero fillText calls per frame!)
+      if (typeof document !== 'undefined' && typeof ctx.drawImage === 'function') {
+        const cellWInt = Math.max(4, Math.ceil(cellW));
+        const cellHInt = Math.max(6, Math.ceil(cellH));
+        const atlasKey = `${cellWInt}|${cellHInt}|${this.paletteKey}|${this.rampKey}`;
 
-          const px = (c + 0.5) * cellW;
-          const cr = colorR[idx] & 0xF8;
-          const cg = colorG[idx] & 0xF8;
-          const cb = colorB[idx] & 0xF8;
-          const packed = (cr << 16) | (cg << 8) | cb;
-          if (packed !== lastFgRgb) {
-            lastFgRgb = packed;
-            ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+        if (!this._glyphAtlas || this._atlasKey !== atlasKey) {
+          this._atlasKey = atlasKey;
+          const rampObj = GLYPH_RAMPS[this.rampKey] || GLYPH_RAMPS.botanical;
+          const rawChars = rampObj.chars + '✦_\\|/·°✧∙*';
+          const unique = [];
+          const charMap = Object.create(null);
+          for (let i = 0; i < rawChars.length; i++) {
+            const ch = rawChars[i];
+            if (ch !== ' ' && charMap[ch] === undefined) {
+              charMap[ch] = unique.length;
+              unique.push(ch);
+            }
           }
-          ctx.fillText(ch, px, py);
+          this._atlasMap = charMap;
+
+          if (!this._glyphAtlas) {
+            this._glyphAtlas = document.createElement('canvas');
+          }
+          this._glyphAtlas.width = unique.length * cellWInt;
+          this._glyphAtlas.height = 16 * cellHInt;
+          const actx = this._glyphAtlas.getContext('2d');
+          actx.clearRect(0, 0, this._glyphAtlas.width, this._glyphAtlas.height);
+          actx.font = `600 ${fontSize}px "JetBrains Mono", "Space Mono", "Fira Code", "Consolas", monospace`;
+          actx.textBaseline = 'middle';
+          actx.textAlign = 'center';
+
+          for (let rowIdx = 0; rowIdx < 16; rowIdx++) {
+            let rgb;
+            if (rowIdx < 11) {
+              const lum = 0.16 + (rowIdx / 10) * 0.84;
+              rgb = palette.transformColor(0.88, 0.08, 0.14, 'petal', lum, rowIdx / 14, rowIdx >= 9 ? 0.25 : 0);
+            } else if (rowIdx === 11) {
+              rgb = palette.transformColor(0.98, 0.80, 0.22, 'stamen', 1.0, 0.85, 0.9);
+            } else {
+              const lum = 0.25 + ((rowIdx - 12) / 3) * 0.72;
+              rgb = palette.transformColor(0.14, 0.65, 0.18, 'leaf', lum, 0.25, 0);
+            }
+            actx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+            const py = (rowIdx + 0.5) * cellHInt;
+            for (let g = 0; g < unique.length; g++) {
+              actx.fillText(unique[g], (g + 0.5) * cellWInt, py);
+            }
+          }
         }
-      }
 
-      // 4. Cached CRT scanline pattern (1 fillRect instead of 330+ per frame)
-      if (this.scanlines) {
-        if (typeof document !== 'undefined') {
-          if (!this._scanPattern) {
-            const pCanvas = document.createElement('canvas');
-            pCanvas.width = 1;
-            pCanvas.height = 3;
-            const pctx = pCanvas.getContext('2d');
-            pctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
-            pctx.fillRect(0, 0, 1, 1);
-            this._scanPattern = ctx.createPattern(pCanvas, 'repeat');
+        const atlas = this._glyphAtlas;
+        const charMap = this._atlasMap;
+        for (let r = 0; r < rows; r++) {
+          const rowOff = r * cols;
+          const dy = r * cellH;
+          for (let c = 0; c < cols; c++) {
+            const idx = rowOff + c;
+            const ch = charGrid[idx];
+            if (ch === ' ') continue;
+            const gIdx = charMap[ch];
+            if (gIdx === undefined) continue;
+            ctx.drawImage(
+              atlas,
+              gIdx * cellWInt,
+              shadeRow[idx] * cellHInt,
+              cellWInt,
+              cellHInt,
+              c * cellW,
+              dy,
+              cellW,
+              cellH
+            );
           }
-          if (this._scanPattern) {
-            ctx.fillStyle = this._scanPattern;
-            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-          }
-        } else {
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
-          for (let y = 0; y < canvasHeight; y += 3) {
-            ctx.fillRect(0, y, canvasWidth, 1);
+        }
+      } else {
+        // Headless fallback for Node.js verification
+        ctx.font = `600 ${fontSize}px "JetBrains Mono", "Space Mono", "Fira Code", "Consolas", monospace`;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+        const colorR = this.colorR;
+        const colorG = this.colorG;
+        const colorB = this.colorB;
+        let lastFgRgb = -1;
+        for (let r = 0; r < rows; r++) {
+          const rowOff = r * cols;
+          const py = (r + 0.5) * cellH;
+          for (let c = 0; c < cols; c++) {
+            const idx = rowOff + c;
+            const ch = charGrid[idx];
+            if (ch === ' ') continue;
+            const px = (c + 0.5) * cellW;
+            const cr = colorR[idx] & 0xF8;
+            const cg = colorG[idx] & 0xF8;
+            const cb = colorB[idx] & 0xF8;
+            const packed = (cr << 16) | (cg << 8) | cb;
+            if (packed !== lastFgRgb) {
+              lastFgRgb = packed;
+              ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+            }
+            ctx.fillText(ch, px, py);
           }
         }
       }
