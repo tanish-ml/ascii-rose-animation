@@ -17,13 +17,13 @@
     const isMobile = window.innerWidth <= 640;
 
     const engine = new RoseRenderer.AsciiRoseEngine({
-      cols: isMobile ? 64 : 88,
+      cols: isMobile ? 56 : 84,
       rows: 40,
       model: 'cortes',
       palette: 'crimson',
       ramp: 'botanical',
       bloom: 0.92,
-      density: 0.55,
+      density: 0.72,
       thornDetail: 0.72,
       windStrength: 0.35,
       glowIntensity: 0.65,
@@ -69,7 +69,7 @@
       canvas.height = h;
 
       if (!state.customCols) {
-        state.baseCols = w <= 640 ? 64 : 88;
+        state.baseCols = w <= 640 ? 56 : 84;
         if (colsSlider) colsSlider.value = String(state.baseCols);
       }
       const charAspect = 0.55;
@@ -118,11 +118,13 @@
 
     // ASCII Density Slider
     if (colsSlider) {
-      colsSlider.addEventListener('input', () => {
+      const onDensityInput = () => {
         state.customCols = true;
-        state.baseCols = parseInt(colsSlider.value, 10) || 88;
+        state.baseCols = parseInt(colsSlider.value, 10) || 84;
         updateCanvasAndGridSize();
-      });
+      };
+      colsSlider.addEventListener('input', onDensityInput);
+      colsSlider.addEventListener('change', onDensityInput);
     }
 
     // Wind Gust

@@ -425,8 +425,7 @@
 
     rebuildGeometryIfNeeded(force) {
       const quantBloom = Math.round(this.bloom * 120) / 120;
-      const gridDensityBoost = Math.min(1.2, Math.max(0.55, this.cols / 115));
-      const quantDensity = Math.round(Math.max(this.density, gridDensityBoost) * 20) / 20;
+      const quantDensity = Math.round(this.density * 20) / 20;
       const quantThorn = Math.round(this.thornDetail * 20) / 20;
 
       const foliageKey = `${quantDensity}|${quantThorn}`;
@@ -637,8 +636,8 @@
       const hyN = hyRaw * hLenInv;
       const hzN = hzRaw * hLenInv;
 
-      // Splat size: if grid is dense (>= 80 cols), splat horizontally to prevent monospace aspect gaps
-      const useWideSplat = cols >= 80;
+      // Splat size: splat horizontally to prevent monospace aspect gaps
+      const useWideSplat = cols >= 50;
 
       const splatPoint = (wx, wy, wz, nx, ny, nz, r, g, b, partCode, layerId, isDewdrop, vParam) => {
         // Translate by vertical pan
@@ -1226,9 +1225,61 @@
           actx.textBaseline = 'middle';
           actx.textAlign = 'center';
 
+          const FLOWER_ATLAS_GRADIENTS = {
+            crimson: {
+              dark: [95, 10, 32], mid: [225, 32, 78], bright: [255, 145, 180],
+              stamen: [255, 225, 110], leafDark: [18, 72, 34], leafBright: [72, 210, 105]
+            },
+            biolum: {
+              dark: [22, 38, 125], mid: [0, 195, 225], bright: [145, 255, 245],
+              stamen: [230, 175, 255], leafDark: [10, 68, 82], leafBright: [45, 225, 185]
+            },
+            gold: {
+              dark: [105, 52, 8], mid: [235, 158, 28], bright: [255, 238, 150],
+              stamen: [255, 250, 210], leafDark: [48, 68, 26], leafBright: [135, 175, 72]
+            },
+            sakura: {
+              dark: [128, 36, 86], mid: [248, 138, 186], bright: [255, 225, 242],
+              stamen: [255, 235, 145], leafDark: [26, 78, 68], leafBright: [88, 195, 165]
+            },
+            solar: {
+              dark: [120, 18, 72], mid: [255, 92, 28], bright: [255, 225, 95],
+              stamen: [255, 250, 195], leafDark: [64, 24, 72], leafBright: [185, 72, 145]
+            }
+          };
+          const grad = FLOWER_ATLAS_GRADIENTS[this.paletteKey];
+
           for (let rowIdx = 0; rowIdx < 16; rowIdx++) {
             let rgb;
-            if (rowIdx < 11) {
+            if (grad) {
+              if (rowIdx < 11) {
+                const t = rowIdx / 10;
+                if (t < 0.55) {
+                  const k = t / 0.55;
+                  rgb = [
+                    Math.round(lerp(grad.dark[0], grad.mid[0], k)),
+                    Math.round(lerp(grad.dark[1], grad.mid[1], k)),
+                    Math.round(lerp(grad.dark[2], grad.mid[2], k))
+                  ];
+                } else {
+                  const k = (t - 0.55) / 0.45;
+                  rgb = [
+                    Math.round(lerp(grad.mid[0], grad.bright[0], k)),
+                    Math.round(lerp(grad.mid[1], grad.bright[1], k)),
+                    Math.round(lerp(grad.mid[2], grad.bright[2], k))
+                  ];
+                }
+              } else if (rowIdx === 11) {
+                rgb = grad.stamen;
+              } else {
+                const k = (rowIdx - 12) / 3;
+                rgb = [
+                  Math.round(lerp(grad.leafDark[0], grad.leafBright[0], k)),
+                  Math.round(lerp(grad.leafDark[1], grad.leafBright[1], k)),
+                  Math.round(lerp(grad.leafDark[2], grad.leafBright[2], k))
+                ];
+              }
+            } else if (rowIdx < 11) {
               const t = rowIdx / 10;
               const lum = 0.22 + Math.pow(t, 0.85) * 0.78;
               const rim = t > 0.6 ? (t - 0.6) * 2.2 : 0;
