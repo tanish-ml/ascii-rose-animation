@@ -130,6 +130,19 @@
       return this.isPlaying;
     }
 
+    setBackgroundPaused(paused) {
+      if (!this.ctx) return;
+      if (paused) {
+        if (this.ctx.state === 'running' && typeof this.ctx.suspend === 'function') {
+          this.ctx.suspend().catch(() => {});
+        }
+      } else if (this.isPlaying) {
+        if (this.ctx.state === 'suspended' && typeof this.ctx.resume === 'function') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+    }
+
     /**
      * Plays a delicate FM glass-harp / celesta chime
      * @param {number} pan - Stereo pan in [-1, 1]

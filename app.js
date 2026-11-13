@@ -167,6 +167,27 @@
       });
     }
 
+    // Pause audio when tab/app is backgrounded (desktop & mobile)
+    function handleVisibilityPause() {
+      const hidden = document.hidden || document.visibilityState === 'hidden';
+      if (typeof audio.setBackgroundPaused === 'function') {
+        audio.setBackgroundPaused(hidden);
+      }
+    }
+    if (typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', handleVisibilityPause);
+    }
+    window.addEventListener('pagehide', () => {
+      if (typeof audio.setBackgroundPaused === 'function') audio.setBackgroundPaused(true);
+    });
+    window.addEventListener('pageshow', handleVisibilityPause);
+    window.addEventListener('blur', () => {
+      if (document.hidden && typeof audio.setBackgroundPaused === 'function') {
+        audio.setBackgroundPaused(true);
+      }
+    });
+    window.addEventListener('focus', handleVisibilityPause);
+
     // Zen Mode Toggle (Default: ON)
     document.body.classList.add('zen-mode');
     function toggleZenMode() {
