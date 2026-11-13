@@ -253,6 +253,12 @@
         state.autoBloom = false;
         if (autoBloomCheckbox) autoBloomCheckbox.checked = false;
         state.targetBloom = target;
+        if (!state.isPlaying) {
+          engine.bloom = target;
+        }
+        if (bloomSlider) bloomSlider.value = target.toFixed(2);
+        if (bloomValEl) bloomValEl.textContent = `${Math.round(target * 100)}%`;
+        updatePhaseUI(target);
         if (target > 1.05) {
           engine.triggerWindGust(12);
           audio.playWindCascade();
@@ -348,9 +354,13 @@
       });
     }
 
-    // Toggle Right Control Dock
+    // Toggle Right Control Dock (auto-collapse on narrow mobile viewports so rose is unobstructed)
     const controlDock = document.getElementById('control-dock');
     const btnToggleDock = document.getElementById('btn-toggle-dock');
+    if (controlDock && window.innerWidth <= 640) {
+      controlDock.classList.add('collapsed');
+      if (btnToggleDock) btnToggleDock.classList.remove('active');
+    }
     if (btnToggleDock && controlDock) {
       btnToggleDock.addEventListener('click', () => {
         const collapsed = controlDock.classList.toggle('collapsed');
@@ -426,16 +436,35 @@
     });
 
     // ========================================================================
-    // 3D ORBIT CAMERA, ZOOM & CURSOR WIND INTERACTION
+    // 3D ORBIT CAMERA, PINCH-ZOOM & CURSOR WIND INTERACTION
     // ========================================================================
+    const activePointers = new Map();
+    let lastPinchDist = 0;
+
     viewport.addEventListener('pointerdown', (e) => {
+      const pid = typeof e.pointerId === 'number' ? e.pointerId : 0;
+      activePointers.set(pid, { x: e.clientX, y: e.clientY });
+
       state.isDragging = true;
+      engine.pointerDragging = true;
       state.dragMode = (e.shiftKey || e.button === 2) ? 'pan' : 'orbit';
       state.lastMouseX = e.clientX;
       state.lastMouseY = e.clientY;
       state.velYaw = 0;
       state.velPitch = 0;
-      viewport.setPointerCapture(e.pointerId);
+
+      if (activePointers.size === 2) {
+        const pts = Array.from(activePointers.values());
+        lastPinchDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      }
+
+      if (viewport.setPointerCapture && typeof e.pointerId === 'number') {
+        try {
+          viewport.setPointerCapture(e.pointerId);
+        } catch (err) {
+          // Ignore synthetic events without valid pointerId
+        }
+      }
     });
 
     viewport.addEventListener('pointermove', (e) => {
@@ -447,10 +476,30 @@
 
       if (!state.isDragging) return;
 
-      const dx = e.clientX - state.lastMouseX;
-      const dy = e.clientY - state.lastMouseY;
+      const pid = typeof e.pointerId === 'number' ? e.pointerId : 0;
+      if (activePointers.size >= 2 && activePointers.has(pid)) {
+        activePointers.set(pid, { x: e.clientX, y: e.clientY });
+        const pts = Array.from(activePointers.values());
+        const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        if (lastPinchDist > 5 && dist > 5) {
+          const pinchDelta = (lastPinchDist - dist) * 0.0085;
+          engine.camDist = RoseMath.clamp(engine.camDist + pinchDelta, 1.45, 5.8);
+        }
+        lastPinchDist = dist;
+        return;
+      }
+
+      const prev = activePointers.get(pid);
+      const refX = prev ? prev.x : state.lastMouseX;
+      const refY = prev ? prev.y : state.lastMouseY;
+      const dx = e.clientX - refX;
+      const dy = e.clientY - refY;
+
       state.lastMouseX = e.clientX;
       state.lastMouseY = e.clientY;
+      if (activePointers.has(pid)) {
+        activePointers.set(pid, { x: e.clientX, y: e.clientY });
+      }
 
       if (state.dragMode === 'pan') {
         engine.camPanX = RoseMath.clamp(engine.camPanX + dx * 0.0035, -1.2, 1.2);
@@ -465,8 +514,24 @@
       }
     });
 
-    function endDrag() {
-      state.isDragging = false;
+    function endDrag(e) {
+      const pid = e && typeof e.pointerId === 'number' ? e.pointerId : null;
+      if (pid !== null) {
+        activePointers.delete(pid);
+      } else {
+        activePointers.clear();
+      }
+      if (activePointers.size < 2) {
+        lastPinchDist = 0;
+      }
+      if (activePointers.size === 1) {
+        const remaining = Array.from(activePointers.values())[0];
+        state.lastMouseX = remaining.x;
+        state.lastMouseY = remaining.y;
+      } else if (activePointers.size === 0) {
+        state.isDragging = false;
+        engine.pointerDragging = false;
+      }
     }
     viewport.addEventListener('pointerup', endDrag);
     viewport.addEventListener('pointercancel', endDrag);
@@ -558,22 +623,26 @@
           state.velPitch *= Math.pow(0.06, dt);
         }
 
-        // Lifecycle Auto-Bloom or smooth target interpolation
+        // Lifecycle Auto-Bloom wave
         if (state.autoBloom) {
           state.bloomCycleTime += dt * 0.28;
           // Smooth breathing wave between tight bud (0.08) and full over-bloom (1.14)
           const wave = 0.5 - 0.5 * Math.cos(state.bloomCycleTime);
           state.targetBloom = 0.08 + Math.pow(wave, 0.85) * 1.06;
-          if (bloomSlider) bloomSlider.value = state.targetBloom.toFixed(2);
-          if (bloomValEl) bloomValEl.textContent = `${Math.round(state.targetBloom * 100)}%`;
         }
-
-        engine.bloom += (state.targetBloom - engine.bloom) * Math.min(1, dt * 5.5);
-        updatePhaseUI(engine.bloom);
 
         // Step 3D falling petals & rising pollen physics
         engine.stepPhysics(dt, state.elapsedTime);
       }
+
+      // Smoothly interpolate bloom toward targetBloom & keep slider/readout synchronized
+      const bloomDelta = state.targetBloom - engine.bloom;
+      if (Math.abs(bloomDelta) > 1e-4) {
+        engine.bloom += bloomDelta * Math.min(1, dt * 5.5);
+        if (bloomSlider) bloomSlider.value = engine.bloom.toFixed(2);
+        if (bloomValEl) bloomValEl.textContent = `${Math.round(engine.bloom * 100)}%`;
+      }
+      updatePhaseUI(engine.bloom);
 
       // Update WebAudio synthesizer & get harmonic energy
       engine.audioEnergy = audio.update(dt, engine.bloom, engine.windStrength);
@@ -582,7 +651,7 @@
       const stats = engine.renderFrame(state.elapsedTime);
       engine.drawToCanvas(ctx, canvas.width, canvas.height);
 
-      // Update telemetry readout every 8 frames
+      // Update telemetry readout & Live Raw ASCII modal every 8 frames
       state.frameCounter++;
       if (state.frameCounter % 8 === 0) {
         if (statFps) statFps.textContent = `${Math.round(state.fpsSmooth)}`;
@@ -593,6 +662,9 @@
           const degYaw = Math.round(((engine.camYaw * 180) / Math.PI) % 360);
           const degPitch = Math.round((engine.camPitch * 180) / Math.PI);
           statCam.textContent = `${degYaw}° / ${degPitch}°`;
+        }
+        if (asciiModal && asciiModal.classList.contains('open') && rawAsciiPre) {
+          rawAsciiPre.textContent = engine.toAsciiString(true);
         }
       }
     }

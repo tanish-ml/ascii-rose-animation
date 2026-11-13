@@ -34,7 +34,8 @@
   }
 
   function normalize3(x, y, z) {
-    const len = Math.hypot(x, y, z) || 1;
+    const len = Math.hypot(x, y, z);
+    if (len < 1e-8) return [0, 1, 0];
     return [x / len, y / len, z / len];
   }
 
@@ -165,10 +166,10 @@
     // Classic rose leaflet ovate-acuminate envelope + Román Cortés's serrated margin teeth
     const baseEnvelope = Math.sin(Math.pow(b, 0.72) * PI);
     const serration = b > 0.12 && b < 0.95 ? Math.cos(b * 95) * 0.025 * absU : 0;
-    const halfWidth = (baseEnvelope * 0.27 + serration) * (1 - 0.12 * b);
+    const halfWidth = (baseEnvelope * 0.29 + serration) * (1 - 0.12 * b);
 
     const bladeX = U * halfWidth;
-    const bladeLen = (0.06 + b * 0.78);
+    const bladeLen = (0.05 + b * 0.80);
 
     // V-shaped midrib fold + natural graceful downward arch at leaf tip
     const midribFold = absU * 0.055 * Math.sin(b * PI);
@@ -218,7 +219,6 @@
   // MODEL 1: ROMÁN CORTÉS 24-PETAL ROSE (Normalized & Bloom-Articulated in 3D)
   // ============================================================================
   function evalCortesPetal(a, b, petalIdx, bloom) {
-    const h = -250;
     const A = a * 2 - 1;
     const B = b * 2 - 1;
 
@@ -229,34 +229,47 @@
 
     // Progressive bloom: outer petals (petalRatio ~ 1) unfurl first, inner petals stay cupped longer
     const localBloom = smoothstep(0.0, 0.95, bloom * (0.38 + 0.72 * petalRatio));
-    const budTightness = 1 - localBloom;
-
-    // Cortés exact petal width o and radial cup distance w, modulated by localBloom
-    const oScale = lerp(0.45, 1.08 + Math.max(0, bloom - 1) * 0.25, localBloom);
-    const o = A * (2 - b) * (80 - c * 2) * oScale;
-
-    const fullW = 99 - Math.cos(A) * 120 - Math.cos(b) * (-h - c * 4.9) + Math.cos(Math.pow(1 - b, 7)) * 50 + c * 2;
-    const budW = -35 - petalRatio * 55 * (1 - b * 0.45) - Math.cos(A) * 35;
-    const w = lerp(budW, fullW, localBloom);
-
-    // Azimuthal rotation around vertical flower axis
-    const angle = c * 2.39996 + budTightness * 0.4 * petalRatio;
-    const zLocal = o * Math.sin(angle) + w * Math.cos(angle);
-    const xRaw = o * Math.cos(angle) - w * Math.sin(angle);
-
-    // Scale to world space: outer petals reach radius ~ 1.05
-    const scaleXZ = 1 / 195;
-    const wx = xRaw * scaleXZ;
-    const wz = zLocal * scaleXZ;
 
     // In Cortés's equation, b=0 (B=-1) is the upper curled lip of the petal, b=1 (B=+1) is the base
     const vTip = 1 - b; // 0 at base, 1 at upper lip
-    const rawCupHeight = -B * 99 + Math.cos(Math.pow(b, 7)) * 50 * localBloom - c * 0.8;
-    const wy = 0.40 + (rawCupHeight / 210) - petalRatio * 0.14 * localBloom + budTightness * 0.12 * vTip;
+    const absA = Math.abs(A);
 
-    // Rich radial + vertical velvet shading
-    const red = clamp((0.28 + 0.68 * Math.pow(vTip, 0.75)) + 0.12 * (1 - Math.abs(A)), 0.16, 1.0);
-    const green = clamp(Math.pow(vTip, 10) * 0.32 + 0.03, 0.02, 0.48);
+    // Polar flare angle phi: inner bud core stands upright (phi ~ 0.16), outer petals open wide (phi ~ 1.22)
+    const flarePhi = lerp(
+      0.14 + 0.24 * petalRatio,
+      0.18 + 1.06 * Math.pow(petalRatio, 1.08) + Math.max(0, bloom - 1) * 0.22 * petalRatio,
+      localBloom
+    );
+    const sinPhi = Math.sin(flarePhi);
+    const cosPhi = Math.cos(flarePhi);
+
+    // Cortés's signature 7th-power rolled upper petal lip + concave bowl curvature
+    const cortLipRoll = (1 - Math.cos(Math.pow(vTip, 7))) * 0.24 * localBloom;
+    const cupDepth = Math.sin(vTip * PI * 0.88) * 0.17 * (1 - 0.55 * A * A);
+
+    const petalLen = vTip * (0.54 + 0.34 * petalRatio);
+    const baseRadius = 0.035 + 0.28 * petalRatio * localBloom;
+
+    // True 3D polar projection: as flarePhi opens, radial reach grows with sin(phi) and height drops with cos(phi)
+    const rDist = Math.max(
+      0.025,
+      baseRadius + petalLen * sinPhi - cupDepth * cosPhi + cortLipRoll * Math.cos(A * PI * 1.25)
+    );
+    const wy = 0.05 + petalLen * cosPhi + cupDepth * sinPhi - cortLipRoll * 0.45 - petalRatio * 0.08 * localBloom;
+
+    // Cortés's width profile (80 - 2c) wrapped concavely around the flower axis by the Golden Angle
+    const halfSpan = (1 + vTip * 0.85) * (0.42 + 0.48 * petalRatio) * lerp(0.58, 1.08, localBloom);
+    const angularOffset = (A * halfSpan) / Math.max(0.28, rDist * 0.82 + 0.18);
+    const baseAzimuth = petalIdx * 2.39996323; // 137.50776 deg Golden Angle
+    const theta = baseAzimuth + angularOffset;
+
+    const wx = rDist * Math.cos(theta);
+    const wz = rDist * Math.sin(theta);
+
+    // Rich radial + vertical velvet shading with bright curled upper lips
+    const vShade = clamp(vTip * (1 - 0.18 * absA * absA), 0, 1);
+    const red = clamp((0.26 + 0.70 * Math.pow(vShade, 0.75)) + 0.10 * (1 - absA), 0.16, 1.0);
+    const green = clamp(Math.pow(vShade, 8) * 0.34 + 0.03, 0.02, 0.48);
     const blue = clamp(red * red * 0.30, 0.02, 0.45);
 
     return {
@@ -264,7 +277,7 @@
       y: wy,
       z: wz,
       u: a,
-      v: vTip,
+      v: vShade,
       part: 'petal',
       layer: petalIdx,
       petalRatio: petalRatio,
@@ -283,9 +296,9 @@
     const theta = -2 * PI + thetaNorm * (17 * PI);
 
     // At theta = -2*PI (outer petals), phi reaches phiMax; at theta = 15*PI (core), phi stays tightly vertical
-    const phiMax = lerp(0.28, PI * 0.52, openFactor);
-    const expDivisor = lerp(14.0 * PI, 7.6 * PI, openFactor);
-    const phi = clamp(phiMax * Math.exp(-theta / expDivisor), 0.08, PI * 0.58);
+    const phiMax = lerp(0.28, PI * 0.48, openFactor);
+    const expDivisor = lerp(14.0 * PI, 7.8 * PI, openFactor);
+    const phi = clamp(phiMax * Math.exp(-theta / expDivisor), 0.08, PI * 0.54);
 
     const modVal = posMod(3.6 * theta, TAU);
     const lobeNorm = 1 - Math.abs(1 - modVal / PI); // 0 at petal notch, 1 at petal crest
@@ -299,14 +312,16 @@
     const sinPhi = Math.sin(phi);
     const cosPhi = Math.cos(phi);
 
-    const rScale = lerp(0.52, 1.02 + Math.max(0, bloom - 1) * 0.18, openFactor);
-    const rProj = X * (xParam * sinPhi + y * cosPhi) * rScale;
+    const rScale = lerp(0.52, 1.04 + Math.max(0, bloom - 1) * 0.18, openFactor);
+    const baseRadius = 0.05 * (1 - thetaNorm) * (1 - xParam);
+    const rProj = baseRadius + X * (xParam * sinPhi + y * cosPhi) * rScale;
     const zUp = X * (xParam * cosPhi - y * sinPhi);
 
-    // Place right atop the receptacle
+    // Anchor petal base (xParam = 0) directly into the receptacle cup (y ~ 0.04) across all bloom stages
+    const cupLift = Math.sin(xParam * PI * 0.75) * 0.16 * openFactor + xParam * (1 - thetaNorm) * 0.12;
     const wx = rProj * Math.sin(theta);
     const wz = rProj * Math.cos(theta);
-    const wy = (zUp * 0.96) + lerp(0.12, 0.34, openFactor);
+    const wy = 0.04 + (zUp * 0.88) + cupLift;
 
     const vEffective = clamp(xParam * (0.7 + 0.3 * lobeNorm), 0, 1);
     const red = clamp(0.26 + 0.70 * Math.pow(vEffective, 0.8), 0.15, 1.0);
@@ -417,7 +432,46 @@
   // ============================================================================
   // COMPLETE POINT-CLOUD & SURFACE NORMAL GENERATOR
   // ============================================================================
-  function generateRosePointCloud(options) {
+  function appendPointWithNormal(points, evalFn, u, v, thornDetail) {
+    const eps = 0.008;
+    const duStep = (u + eps <= 1.0) ? eps : -eps;
+    const dvStep = (v + eps <= 1.0) ? eps : -eps;
+
+    const p0 = evalFn(u, v);
+    const pu = evalFn(u + duStep, v);
+    const pv = evalFn(u, v + dvStep);
+
+    const dux = (pu.x - p0.x) / duStep;
+    const duy = (pu.y - p0.y) / duStep;
+    const duz = (pu.z - p0.z) / duStep;
+
+    const dvx = (pv.x - p0.x) / dvStep;
+    const dvy = (pv.y - p0.y) / dvStep;
+    const dvz = (pv.z - p0.z) / dvStep;
+
+    const c = cross3(dux, duy, duz, dvx, dvy, dvz);
+    const n = normalize3(c[0], c[1], c[2]);
+
+    p0.nx = n[0];
+    p0.ny = n[1];
+    p0.nz = n[2];
+
+    // Deterministic dewdrop placement on upper petal surfaces
+    if (thornDetail > 0.2 && p0.part === 'petal') {
+      const hash = Math.sin(u * 127.1 + v * 311.7 + (p0.layer || 0) * 74.7) * 43758.5453;
+      const frac = hash - Math.floor(hash);
+      if (frac > 1.0 - thornDetail * 0.014 && p0.v > 0.25 && p0.v < 0.88) {
+        p0.isDewdrop = true;
+      }
+    }
+
+    points.push(p0);
+  }
+
+  /**
+   * Generates the bloom-dependent flower head & calyx sepals point cloud.
+   */
+  function generateFlowerHeadCloud(options) {
     const opts = options || {};
     const model = opts.model || 'cortes';
     const bloom = typeof opts.bloom === 'number' ? clamp(opts.bloom, 0.02, 1.25) : 1.0;
@@ -425,44 +479,14 @@
     const thornDetail = typeof opts.thornDetail === 'number' ? clamp(opts.thornDetail, 0, 1) : 0.7;
 
     const points = [];
-    const eps = 0.008;
-
-    function addPointWithNormal(evalFn, u, v) {
-      const p0 = evalFn(u, v);
-      const pu = evalFn(clamp(u + eps, 0.001, 0.999), v);
-      const pv = evalFn(u, clamp(v + eps, 0.001, 0.999));
-
-      const dux = pu.x - p0.x;
-      const duy = pu.y - p0.y;
-      const duz = pu.z - p0.z;
-
-      const dvx = pv.x - p0.x;
-      const dvy = pv.y - p0.y;
-      const dvz = pv.z - p0.z;
-
-      const c = cross3(dux, duy, duz, dvx, dvy, dvz);
-      const n = normalize3(c[0], c[1], c[2]);
-
-      p0.nx = n[0];
-      p0.ny = n[1];
-      p0.nz = n[2];
-
-      // Deterministic dewdrop placement on upper petal surfaces
-      if (thornDetail > 0.2 && p0.part === 'petal') {
-        const hash = Math.sin(u * 127.1 + v * 311.7 + (p0.layer || 0) * 74.7) * 43758.5453;
-        const frac = hash - Math.floor(hash);
-        if (frac > 1.0 - thornDetail * 0.014 && p0.v > 0.25 && p0.v < 0.88) {
-          p0.isDewdrop = true;
-        }
-      }
-
-      points.push(p0);
-    }
 
     // 1. Sample Flower Head according to selected Mathematical Model
     if (model === 'cortes') {
-      const gridN = Math.max(15, Math.round(25 * Math.sqrt(density)));
+      const baseGridN = Math.max(16, Math.round(26 * Math.sqrt(density)));
       for (let petalIdx = 0; petalIdx < 24; petalIdx++) {
+        // Outer petals have larger surface area, so sample them more densely than tiny core petals
+        const petalScale = petalIdx < 10 ? 1.18 : (petalIdx < 18 ? 1.0 : 0.82);
+        const gridN = Math.max(12, Math.round(baseGridN * petalScale));
         for (let ia = 0; ia < gridN; ia++) {
           const a = (ia + 0.5) / gridN;
           const A = a * 2 - 1;
@@ -470,7 +494,7 @@
             const b = (ib + 0.5) / gridN;
             const B = b * 2 - 1;
             if (A * A + B * B < 0.98) {
-              addPointWithNormal((uu, vv) => evalCortesPetal(uu, vv, petalIdx, bloom), a, b);
+              appendPointWithNormal(points, (uu, vv) => evalCortesPetal(uu, vv, petalIdx, bloom), a, b, thornDetail);
             }
           }
         }
@@ -482,62 +506,75 @@
         const xParam = (ix + 0.5) / nxSteps;
         for (let it = 0; it < nThetaSteps; it++) {
           const tNorm = (it + 0.5) / nThetaSteps;
-          addPointWithNormal((uu, vv) => evalNylanderRosePoint(uu, vv, bloom), xParam, tNorm);
+          appendPointWithNormal(points, (uu, vv) => evalNylanderRosePoint(uu, vv, bloom), xParam, tNorm, thornDetail);
         }
       }
     } else if (model === 'fibonacci') {
       const totalPetals = 36;
-      const pU = Math.max(13, Math.round(19 * Math.sqrt(density)));
-      const pV = Math.max(13, Math.round(19 * Math.sqrt(density)));
+      const pU = Math.max(13, Math.round(20 * Math.sqrt(density)));
+      const pV = Math.max(13, Math.round(20 * Math.sqrt(density)));
       for (let p = 0; p < totalPetals; p++) {
         for (let iu = 0; iu < pU; iu++) {
           const u = (iu + 0.5) / pU;
           for (let iv = 0; iv < pV; iv++) {
             const v = (iv + 0.5) / pV;
-            addPointWithNormal((uu, vv) => evalFibonacciPetalPoint(uu, vv, p, totalPetals, bloom), u, v);
+            appendPointWithNormal(points, (uu, vv) => evalFibonacciPetalPoint(uu, vv, p, totalPetals, bloom), u, v, thornDetail);
           }
         }
       }
     }
 
-    // 2. Sample 5 Calyx Sepals (shared across all models)
-    const sepalU = Math.max(8, Math.round(11 * Math.sqrt(density)));
-    const sepalV = Math.max(12, Math.round(18 * Math.sqrt(density)));
+    // 2. Sample 5 Calyx Sepals (shared across all models, reflexes with bloom)
+    const sepalU = Math.max(9, Math.round(12 * Math.sqrt(density)));
+    const sepalV = Math.max(14, Math.round(20 * Math.sqrt(density)));
     for (let s = 0; s < 5; s++) {
       for (let ia = 0; ia < sepalU; ia++) {
         const a = (ia + 0.5) / sepalU;
         for (let ib = 0; ib < sepalV; ib++) {
           const b = (ib + 0.5) / sepalV;
-          addPointWithNormal((uu, vv) => evalSepalPoint(uu, vv, s, bloom), a, b);
+          appendPointWithNormal(points, (uu, vv) => evalSepalPoint(uu, vv, s, bloom), a, b, thornDetail);
         }
       }
     }
 
-    // 3. Sample 2 Serrated Leaves
-    const leafU = Math.max(14, Math.round(20 * Math.sqrt(density)));
-    const leafV = Math.max(18, Math.round(26 * Math.sqrt(density)));
+    return points;
+  }
+
+  /**
+   * Generates the bloom-independent foliage point cloud (leaves, stem, receptacle, thorns).
+   */
+  function generateStaticFoliageCloud(options) {
+    const opts = options || {};
+    const density = typeof opts.density === 'number' ? clamp(opts.density, 0.4, 2.2) : 1.0;
+    const thornDetail = typeof opts.thornDetail === 'number' ? clamp(opts.thornDetail, 0, 1) : 0.7;
+
+    const points = [];
+
+    // 1. Sample 2 Serrated Leaves (dense sampling for solid leaf blades)
+    const leafU = Math.max(18, Math.round(26 * Math.sqrt(density)));
+    const leafV = Math.max(24, Math.round(34 * Math.sqrt(density)));
     for (let l = 0; l < 2; l++) {
       for (let ia = 0; ia < leafU; ia++) {
         const a = (ia + 0.5) / leafU;
         for (let ib = 0; ib < leafV; ib++) {
           const b = (ib + 0.5) / leafV;
-          addPointWithNormal((uu, vv) => evalSerratedLeafPoint(uu, vv, l), a, b);
+          appendPointWithNormal(points, (uu, vv) => evalSerratedLeafPoint(uu, vv, l), a, b, thornDetail);
         }
       }
     }
 
-    // 4. Sample Stem & Receptacle
-    const stemU = Math.max(14, Math.round(18 * Math.sqrt(density)));
-    const stemV = Math.max(45, Math.round(70 * Math.sqrt(density)));
+    // 2. Sample Stem & Receptacle
+    const stemU = Math.max(15, Math.round(20 * Math.sqrt(density)));
+    const stemV = Math.max(48, Math.round(74 * Math.sqrt(density)));
     for (let ia = 0; ia < stemU; ia++) {
       const a = (ia + 0.5) / stemU;
       for (let ib = 0; ib < stemV; ib++) {
         const b = (ib + 0.5) / stemV;
-        addPointWithNormal((uu, vv) => evalStemAndReceptacle(uu, vv, thornDetail), a, b);
+        appendPointWithNormal(points, (uu, vv) => evalStemAndReceptacle(uu, vv, thornDetail), a, b, thornDetail);
       }
     }
 
-    // 5. Sample 6 Explicit Hooked Thorns
+    // 3. Sample 6 Explicit Hooked Thorns
     if (thornDetail > 0.05) {
       const tU = Math.max(6, Math.round(8 * Math.sqrt(density)));
       const tV = Math.max(8, Math.round(12 * Math.sqrt(density)));
@@ -546,13 +583,19 @@
           const u = (iu + 0.5) / tU;
           for (let iv = 0; iv < tV; iv++) {
             const v = (iv + 0.5) / tV;
-            addPointWithNormal((uu, vv) => evalThornPoint(uu, vv, t, thornDetail), u, v);
+            appendPointWithNormal(points, (uu, vv) => evalThornPoint(uu, vv, t, thornDetail), u, v, thornDetail);
           }
         }
       }
     }
 
     return points;
+  }
+
+  function generateRosePointCloud(options) {
+    const head = generateFlowerHeadCloud(options);
+    const foliage = generateStaticFoliageCloud(options);
+    return head.concat(foliage);
   }
 
   return {
@@ -567,6 +610,8 @@
     evalSerratedLeafPoint,
     evalStemAndReceptacle,
     evalThornPoint,
+    generateFlowerHeadCloud,
+    generateStaticFoliageCloud,
     generateRosePointCloud
   };
 });

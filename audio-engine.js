@@ -114,12 +114,15 @@
         this.ctx.resume();
       }
       const now = this.ctx.currentTime;
+      const currentGain = Math.max(0.0001, this.masterGain.gain.value || 0.0001);
       if (this.isPlaying) {
         this.masterGain.gain.cancelScheduledValues(now);
+        this.masterGain.gain.setValueAtTime(currentGain, now);
         this.masterGain.gain.setTargetAtTime(0.0001, now, 0.35);
         this.isPlaying = false;
       } else {
         this.masterGain.gain.cancelScheduledValues(now);
+        this.masterGain.gain.setValueAtTime(currentGain, now);
         this.masterGain.gain.setTargetAtTime(0.24, now, 0.6);
         this.isPlaying = true;
         this.playChime(0, 0.6);
@@ -162,14 +165,27 @@
       modGain.connect(carrier.frequency);
       carrier.connect(envGain);
 
+      let panner = null;
       if (this.ctx.createStereoPanner) {
-        const panner = this.ctx.createStereoPanner();
+        panner = this.ctx.createStereoPanner();
         panner.pan.value = Math.max(-1, Math.min(1, pan || 0));
         envGain.connect(panner);
         panner.connect(this.filterNode);
       } else {
         envGain.connect(this.filterNode);
       }
+
+      carrier.onended = () => {
+        try {
+          carrier.disconnect();
+          modulator.disconnect();
+          modGain.disconnect();
+          envGain.disconnect();
+          if (panner) panner.disconnect();
+        } catch (err) {
+          // Ignore already disconnected nodes
+        }
+      };
 
       carrier.start(now);
       modulator.start(now);

@@ -315,7 +315,8 @@ test('app.js initializes cleanly and responds to UI controls, sliders, keyboard 
     Number,
     Object,
     Array,
-    Boolean
+    Boolean,
+    Map
   };
   sandbox.self = sandbox.window;
 
@@ -344,10 +345,21 @@ test('app.js initializes cleanly and responds to UI controls, sliders, keyboard 
   // Test pointer orbit on viewport
   const vp = elements['viewport-container'];
   vp.trigger('pointerdown', { clientX: 500, clientY: 500, pointerId: 1, button: 0 });
+  assert.strictEqual(app.engine.pointerDragging, true, 'pointerdown should set engine.pointerDragging');
   const prevYaw = app.engine.camYaw;
-  vp.trigger('pointermove', { clientX: 580, clientY: 520 });
+  vp.trigger('pointermove', { clientX: 580, clientY: 520, pointerId: 1 });
   assert(app.engine.camYaw !== prevYaw, 'Pointer drag should orbit camYaw');
-  vp.trigger('pointerup');
+  vp.trigger('pointerup', { pointerId: 1 });
+  assert.strictEqual(app.engine.pointerDragging, false, 'pointerup should clear engine.pointerDragging');
+
+  // Test two-finger pinch-to-zoom on viewport
+  const distBeforePinch = app.engine.camDist;
+  vp.trigger('pointerdown', { clientX: 400, clientY: 500, pointerId: 10, button: 0 });
+  vp.trigger('pointerdown', { clientX: 500, clientY: 500, pointerId: 11, button: 0 });
+  vp.trigger('pointermove', { clientX: 600, clientY: 500, pointerId: 11 }); // Spread fingers wider -> zoom in (smaller camDist)
+  assert(app.engine.camDist < distBeforePinch, `Two-finger pinch spread should decrease camDist (${app.engine.camDist} < ${distBeforePinch})`);
+  vp.trigger('pointerup', { pointerId: 10 });
+  vp.trigger('pointerup', { pointerId: 11 });
 
   // Test keyboard shortcuts (Zen mode 'h', wind gust 'w', reset camera 'r', space pause)
   sandbox.window.triggerWindow('keydown', { key: 'h', target: { tagName: 'BODY' } });
@@ -357,6 +369,12 @@ test('app.js initializes cleanly and responds to UI controls, sliders, keyboard 
 
   sandbox.window.triggerWindow('keydown', { key: ' ', target: { tagName: 'BODY' } });
   assert.strictEqual(app.state.isPlaying, false, 'Spacebar should toggle pause');
+
+  // Test clicking lifecycle phase button while PAUSED updates engine.bloom, slider, and readout
+  phaseBtn1.click(); // data-bloom = '0.14'
+  assert.strictEqual(app.engine.bloom, 0.14, 'Clicking phase button while paused should immediately update engine.bloom');
+  assert.strictEqual(elements['slider-bloom'].value, '0.14', 'Clicking phase button should synchronize #slider-bloom value');
+  assert.strictEqual(elements['val-bloom'].textContent, '14%', 'Clicking phase button should synchronize #val-bloom readout');
 });
 
 // 8. Audio Engine Headless Safety
@@ -366,6 +384,86 @@ test('BotanicalAudioEngine degrades safely in non-browser environment', () => {
   assert.strictEqual(audio.update(0.016, 0.9, 0.4), 0);
   audio.playChime(0, 0.5);
   audio.playWindCascade();
+});
+
+// 9. High-Density Finite-Difference Surface Normals (Regression for v >= 0.999 zero-normal bug)
+test('High-density point clouds (density = 1.5625 and 2.0) have zero degenerate normals across all models', () => {
+  for (const model of ['cortes', 'nylander', 'fibonacci']) {
+    for (const density of [1.5625, 2.0]) {
+      const pts = RoseMath.generateRosePointCloud({ model, bloom: 0.9, density });
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i];
+        const nLen = Math.hypot(p.nx, p.ny, p.nz);
+        assert(Math.abs(nLen - 1.0) < 1e-3, `Degenerate normal (${nLen}) at index ${i} in ${model} at density=${density}`);
+      }
+    }
+  }
+});
+
+// 10. Anatomical Receptacle Attachment & Golden-Angle Spiral Distribution (Regression for floating Nylander & 185.8 deg Cortes bug)
+test('All 3 rose models anchor petal bases into the receptacle (minY <= 0.08) across all bloom stages and distribute petals around 360 deg', () => {
+  for (const model of ['cortes', 'nylander', 'fibonacci']) {
+    for (const bloom of [0.14, 0.56, 0.92, 1.16]) {
+      const pts = RoseMath.generateFlowerHeadCloud({ model, bloom, density: 0.7 });
+      let minPetalY = Infinity;
+      const quadrants = [0, 0, 0, 0];
+      for (const p of pts) {
+        if (p.part === 'petal') {
+          if (p.y < minPetalY) minPetalY = p.y;
+          const q = (p.x >= 0 ? 0 : 1) + (p.z >= 0 ? 0 : 2);
+          quadrants[q]++;
+        }
+      }
+      assert(minPetalY <= 0.08, `Model ${model} at bloom=${bloom} has floating petals (minY=${minPetalY} > 0.08)`);
+      for (let q = 0; q < 4; q++) {
+        assert(quadrants[q] > 100, `Model ${model} at bloom=${bloom} is lopsided in quadrant ${q} (${quadrants[q]} pts)`);
+      }
+    }
+  }
+});
+
+// 11. Static Foliage Cache Separation during Continuous Bloom Scrubbing
+test('Continuous bloom scrubbing reuses cached static foliage cloud without recomputing stem, leaves, or thorns', () => {
+  const engine = new RoseRenderer.AsciiRoseEngine({ cols: 130, rows: 72 });
+  engine.renderFrame(0);
+  const initialFoliageRef = engine._staticFoliageCloud;
+  assert(initialFoliageRef.length > 1500, 'Static foliage cloud should be populated');
+
+  for (let b = 0.1; b <= 1.15; b += 0.15) {
+    engine.bloom = b;
+    engine.renderFrame(b);
+    assert.strictEqual(
+      engine._staticFoliageCloud,
+      initialFoliageRef,
+      'Static foliage cloud reference must remain cached across bloom changes'
+    );
+  }
+});
+
+// 12. Cursor Hover Breeze Integrity (Regression for cursor punching an empty hole in the rose head)
+test('Hovering cursor over center of rose head preserves solid Z-buffer coverage without tearing holes', () => {
+  const engine = new RoseRenderer.AsciiRoseEngine({ cols: 110, rows: 60 });
+  engine.pointerActive = true;
+  engine.pointerDragging = false;
+  engine.pointerX = 0.0;
+  engine.pointerY = -0.15;
+  engine.renderFrame(0);
+
+  // Check central 10x6 window over the flower head (around col 55, row 25)
+  let filledInCore = 0;
+  for (let r = 22; r <= 28; r++) {
+    for (let c = 50; c <= 60; c++) {
+      if (engine.partBuf[r * engine.cols + c] !== 0) filledInCore++;
+    }
+  }
+  assert(filledInCore >= 60, `Expected solid flower core under cursor (>=60/77 cells), got ${filledInCore}`);
+});
+
+// 13. Touch-Action CSS & Responsive Rules Verification
+test('styles.css includes touch-action: none on viewport/canvas and overflow-x: auto on lifecycle-bar', () => {
+  const css = fs.readFileSync(path.join(__dirname, 'styles.css'), 'utf8');
+  assert(css.includes('touch-action: none'), 'styles.css must set touch-action: none to prevent touch pointercancel');
+  assert(css.includes('overflow-x: auto'), 'styles.css must allow horizontal scroll on .lifecycle-bar for small screens');
 });
 
 console.log(`\nAll ${passed} verification test suites passed!`);

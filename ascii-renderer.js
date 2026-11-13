@@ -360,15 +360,19 @@
       this.pointerX = 0;
       this.pointerY = 0;
       this.pointerActive = false;
+      this.pointerDragging = false;
       this.pointerVx = 0;
       this.pointerVy = 0;
 
       // Audio reactivity boost [0, 1]
       this.audioEnergy = 0;
 
-      // Cached 3D point cloud
+      // Cached 3D point cloud (separated into bloom-dependent head & static foliage)
       this.pointCloud = [];
-      this._cachedCloudKey = '';
+      this._flowerHeadCloud = [];
+      this._staticFoliageCloud = [];
+      this._cachedHeadKey = '';
+      this._cachedFoliageKey = '';
 
       // Particles
       this.fallingPetals = [];
@@ -419,20 +423,38 @@
 
     rebuildGeometryIfNeeded(force) {
       const quantBloom = Math.round(this.bloom * 120) / 120;
-      const quantDensity = Math.round(this.density * 20) / 20;
+      const gridDensityBoost = this.cols > 135 ? Math.min(1.65, Math.pow(this.cols / 130, 1.15)) : 1.0;
+      const quantDensity = Math.round(Math.max(this.density, gridDensityBoost) * 20) / 20;
       const quantThorn = Math.round(this.thornDetail * 20) / 20;
-      const key = `${this.model}|${quantBloom}|${quantDensity}|${quantThorn}`;
 
-      if (!force && key === this._cachedCloudKey && this.pointCloud.length > 0) {
-        return;
+      const foliageKey = `${quantDensity}|${quantThorn}`;
+      const headKey = `${this.model}|${quantBloom}|${quantDensity}|${quantThorn}`;
+
+      let changed = false;
+
+      if (force || foliageKey !== this._cachedFoliageKey || this._staticFoliageCloud.length === 0) {
+        this._cachedFoliageKey = foliageKey;
+        this._staticFoliageCloud = RoseMath.generateStaticFoliageCloud({
+          density: quantDensity,
+          thornDetail: quantThorn
+        });
+        changed = true;
       }
-      this._cachedCloudKey = key;
-      this.pointCloud = RoseMath.generateRosePointCloud({
-        model: this.model,
-        bloom: quantBloom,
-        density: quantDensity,
-        thornDetail: quantThorn
-      });
+
+      if (force || headKey !== this._cachedHeadKey || this._flowerHeadCloud.length === 0) {
+        this._cachedHeadKey = headKey;
+        this._flowerHeadCloud = RoseMath.generateFlowerHeadCloud({
+          model: this.model,
+          bloom: quantBloom,
+          density: quantDensity,
+          thornDetail: quantThorn
+        });
+        changed = true;
+      }
+
+      if (changed || this.pointCloud.length === 0) {
+        this.pointCloud = this._flowerHeadCloud.concat(this._staticFoliageCloud);
+      }
     }
 
     triggerWindGust(count) {
@@ -514,7 +536,6 @@
 
       const cols = this.cols;
       const rows = this.rows;
-      const totalCells = cols * rows;
 
       // Clear Z-buffer
       this.zBuf.fill(1e9);
@@ -568,12 +589,12 @@
       const camDist = this.camDist;
       const panX = this.camPanX;
       const panY = this.camPanY;
-      const pointerActive = this.pointerActive;
+      const pointerActive = this.pointerActive && !this.pointerDragging;
       const pointerX = this.pointerX;
       const pointerY = this.pointerY;
 
-      // Splat size: if grid is dense (>= 110 cols), splat 2x1 or 2x2 for close surfaces so petals are solid
-      const useWideSplat = cols >= 105;
+      // Splat size: if grid is dense (>= 80 cols), splat horizontally to prevent monospace aspect gaps
+      const useWideSplat = cols >= 80;
 
       const splatPoint = (wx, wy, wz, nx, ny, nz, r, g, b, partCode, layerId, isDewdrop, vParam) => {
         // Translate by vertical pan
@@ -599,18 +620,21 @@
         let sx = halfCols + (x2 * invZ) / charAspect;
         let sy = halfRows - y2 * invZ;
 
-        // Interactive cursor wind repulsion in screen space
+        // Subtle organic cursor breeze & shimmer (bounded so it never tears holes in the surface)
+        let cursorSpecBoost = 0;
         if (pointerActive && partCode >= PART_CODES.leaf) {
           const ndcX = (sx - halfCols) / halfCols;
           const ndcY = (sy - halfRows) / halfRows;
           const dx = ndcX - pointerX;
           const dy = ndcY - pointerY;
           const d2 = dx * dx + dy * dy;
-          if (d2 < 0.14 && d2 > 1e-5) {
+          if (d2 < 0.12 && d2 > 1e-6) {
             const dist = Math.sqrt(d2);
-            const push = Math.pow(1 - dist / 0.374, 2) * 3.2;
-            sx += (dx / dist) * push / charAspect;
-            sy += (dy / dist) * push;
+            const falloff = Math.pow(1 - dist / 0.346, 2);
+            const push = falloff * 0.75;
+            sx += (dx / dist) * push;
+            sy += (dy / dist) * push * 0.65;
+            cursorSpecBoost = falloff * 0.28;
           }
         }
 
@@ -624,7 +648,7 @@
         const ny1 = ny;
 
         const ny2 = ny1 * cosPitch - nz1 * sinPitch;
-        const nz2 = ny1 * sinPitch + nz1 * cosPitch;
+        const nz2 = ny1 * sinPitch + z1 * 0 + nz1 * cosPitch;
         const nx2 = nx1;
 
         // Two-sided surface lighting (rose petals are thin translucent membranes)
@@ -633,7 +657,7 @@
 
         // Rim / fresnel backlight when surface normal is perpendicular to view vector (0,0,-1)
         const vFactor = typeof vParam === 'number' ? vParam : 0.75;
-        const rim = clamp(Math.pow(clamp(1.0 - Math.abs(nz2), 0, 1), 2.1) + Math.pow(vFactor, 6) * 0.35, 0, 1);
+        const rim = clamp(Math.pow(clamp(1.0 - Math.abs(nz2), 0, 1), 2.1) + Math.pow(vFactor, 6) * 0.35 + cursorSpecBoost * 0.5, 0, 1);
 
         // Specular highlight (Blinn-Phong half-vector with view vector (0,0,-1))
         const hx = lightX;
@@ -641,7 +665,7 @@
         const hz = lightZ - 1.0;
         const hLen = Math.hypot(hx, hy, hz) || 1;
         const ndoth = Math.abs(nx2 * (hx / hLen) + ny2 * (hy / hLen) + nz2 * (hz / hLen));
-        let spec = Math.pow(clamp(ndoth, 0, 1), 18) * 0.45;
+        let spec = Math.pow(clamp(ndoth, 0, 1), 18) * 0.45 + cursorSpecBoost;
         if (isDewdrop) {
           spec = Math.max(spec, 0.95);
         }
@@ -817,6 +841,52 @@
       }
 
       // ========================================================================
+      // 3.5 SCREEN-SPACE PINHOLE CLOSING PASS (Eliminates 1-cell sampling gaps)
+      // ========================================================================
+      for (let row = 1; row < rows - 1; row++) {
+        const rowOffset = row * cols;
+        for (let col = 1; col < cols - 1; col++) {
+          const idx = rowOffset + col;
+          if (partBuf[idx] !== 0) continue;
+
+          const idxU = idx - cols;
+          const idxD = idx + cols;
+          const idxL = idx - 1;
+          const idxR = idx + 1;
+
+          const pU = partBuf[idxU];
+          const pD = partBuf[idxD];
+          const pL = partBuf[idxL];
+          const pR = partBuf[idxR];
+
+          let srcA = -1;
+          let srcB = -1;
+          if (pU > 0 && pD > 0 && pU !== PART_CODES.pollen && pD !== PART_CODES.pollen && Math.abs(zBuf[idxU] - zBuf[idxD]) < 0.22) {
+            srcA = idxU;
+            srcB = idxD;
+          } else if (pL > 0 && pR > 0 && pL !== PART_CODES.pollen && pR !== PART_CODES.pollen && Math.abs(zBuf[idxL] - zBuf[idxR]) < 0.22) {
+            srcA = idxL;
+            srcB = idxR;
+          }
+
+          if (srcA !== -1) {
+            const pick = zBuf[srcA] <= zBuf[srcB] ? srcA : srcB;
+            zBuf[idx] = (zBuf[srcA] + zBuf[srcB]) * 0.5;
+            lumBuf[idx] = (lumBuf[srcA] + lumBuf[srcB]) * 0.5;
+            rimBuf[idx] = (rimBuf[srcA] + rimBuf[srcB]) * 0.5;
+            specBuf[idx] = Math.min(specBuf[srcA], specBuf[srcB]);
+            nxBuf[idx] = nxBuf[pick];
+            nyBuf[idx] = nyBuf[pick];
+            rBuf[idx] = (rBuf[srcA] + rBuf[srcB]) * 0.5;
+            gBuf[idx] = (gBuf[srcA] + gBuf[srcB]) * 0.5;
+            bBuf[idx] = (bBuf[srcA] + bBuf[srcB]) * 0.5;
+            partBuf[idx] = partBuf[pick];
+            layerBuf[idx] = layerBuf[pick];
+          }
+        }
+      }
+
+      // ========================================================================
       // 4. SCREEN-SPACE OVERLAPPING PETAL CONTOUR & CHARACTER SHADING PASS
       // ========================================================================
       const palette = PALETTES[this.paletteKey] || PALETTES.crimson;
@@ -871,7 +941,7 @@
               const zD = zBuf[idxD];
 
               // Genuine overlapping petal lip discontinuity
-              const creaseThresh = 0.058;
+              const creaseThresh = 0.068;
               if (
                 (layerBuf[idxL] !== layer && z < zL - creaseThresh) ||
                 (layerBuf[idxR] !== layer && z < zR - creaseThresh) ||
@@ -912,15 +982,17 @@
           } else if (spec > 0.82) {
             ch = '✦';
           } else if (useContours && (isSilhouetteEdge || isPetalCrease)) {
-            // Directional contour glyph from surface normal / screen gradient
-            const tx = -(gradY || nyBuf[idx]);
-            const ty = (gradX || nxBuf[idx]);
+            // Directional contour glyph aligned with screen-space tangent (+X right, +Y down)
+            const gx = gradX || nxBuf[idx];
+            const gy = gradY || -nyBuf[idx];
+            const tx = -gy;
+            const ty = gx;
             const angle = Math.atan2(ty, tx);
             const oct = Math.round((angle / Math.PI) * 4 + 4) % 4;
             if (oct === 0) ch = '_';
-            else if (oct === 1) ch = '/';
+            else if (oct === 1) ch = '\\';
             else if (oct === 2) ch = '|';
-            else ch = '\\';
+            else ch = '/';
           } else {
             const charIdx = clamp(Math.floor(lum * (numChars - 1) + 0.5), 1, numChars - 1);
             ch = chars[charIdx];
@@ -1017,6 +1089,7 @@
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         const glowAlpha = clamp(this.glowIntensity * 0.28 + this.audioEnergy * 0.15, 0.05, 0.45);
+        let lastGlowRgb = -1;
         for (let r = 0; r < rows; r++) {
           const rowOff = r * cols;
           const py = (r + 0.5) * cellH;
@@ -1026,7 +1099,14 @@
             if (ch === ' ') continue;
             if (lumBuf[idx] > 0.72 || specBuf[idx] > 0.4) {
               const px = (c + 0.5) * cellW;
-              ctx.fillStyle = `rgba(${colorR[idx]}, ${colorG[idx]}, ${colorB[idx]}, ${glowAlpha})`;
+              const cr = colorR[idx];
+              const cg = colorG[idx];
+              const cb = colorB[idx];
+              const packed = (cr << 16) | (cg << 8) | cb;
+              if (packed !== lastGlowRgb) {
+                lastGlowRgb = packed;
+                ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${glowAlpha})`;
+              }
               ctx.fillRect(px - cellW * 0.85, py - cellH * 0.65, cellW * 1.7, cellH * 1.3);
             }
           }
@@ -1035,6 +1115,7 @@
       }
 
       // 4. Crisp foreground ASCII glyphs
+      let lastFgRgb = -1;
       for (let r = 0; r < rows; r++) {
         const rowOff = r * cols;
         const py = (r + 0.5) * cellH;
@@ -1047,8 +1128,11 @@
           const cr = colorR[idx];
           const cg = colorG[idx];
           const cb = colorB[idx];
-
-          ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+          const packed = (cr << 16) | (cg << 8) | cb;
+          if (packed !== lastFgRgb) {
+            lastFgRgb = packed;
+            ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+          }
           ctx.fillText(ch, px, py);
         }
       }

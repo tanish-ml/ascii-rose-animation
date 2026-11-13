@@ -48,6 +48,7 @@ html, body {
   height: 100vh;
   z-index: 1;
   cursor: grab;
+  touch-action: none;
 }
 
 #viewport-container:active {
@@ -58,6 +59,7 @@ html, body {
   display: block;
   width: 100%;
   height: 100%;
+  touch-action: none;
 }
 
 /* Subtle editorial corner crosshairs */
@@ -524,6 +526,8 @@ html, body {
   display: flex;
   align-items: center;
   gap: 8px;
+  max-width: 100%;
+  overflow-x: auto;
   background: var(--panel-bg);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -544,6 +548,8 @@ html, body {
   padding: 5px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.2s ease;
 }
 
