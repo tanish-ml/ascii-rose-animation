@@ -33,9 +33,10 @@
     <span class="pill-divider" aria-hidden="true"></span>
 
     <div class="pill-controls">
-      <button type="button" id="btn-palette" class="icon-btn" title="Palette">
-        <span id="palette-dot" class="palette-dot"></span>
-      </button>
+      <label class="density-control" title="ASCII Density">
+        <span class="density-label">Density</span>
+        <input type="range" id="slider-cols" class="hud-slider" min="50" max="135" step="5" value="88" />
+      </label>
       <button type="button" id="btn-wind-gust" class="icon-btn" title="Wind">🌬️</button>
       <button type="button" id="btn-audio" class="icon-btn active" title="Sound">🔊</button>
       <button type="button" id="btn-zen" class="icon-btn" title="Hide">👁️</button>

@@ -149,12 +149,39 @@ html, body {
   border-color: var(--accent);
 }
 
-.palette-dot {
+.density-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.density-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.hud-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 68px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 2px;
+  outline: none;
+}
+
+.hud-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
   width: 13px;
   height: 13px;
   border-radius: 50%;
   background: var(--accent);
-  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--accent);
 }
 
 /* Zen Mode */

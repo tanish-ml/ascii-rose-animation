@@ -425,7 +425,7 @@
 
     rebuildGeometryIfNeeded(force) {
       const quantBloom = Math.round(this.bloom * 120) / 120;
-      const gridDensityBoost = this.cols > 135 ? Math.min(1.65, Math.pow(this.cols / 130, 1.15)) : 1.0;
+      const gridDensityBoost = Math.min(1.2, Math.max(0.55, this.cols / 115));
       const quantDensity = Math.round(Math.max(this.density, gridDensityBoost) * 20) / 20;
       const quantThorn = Math.round(this.thornDetail * 20) / 20;
 
@@ -1166,8 +1166,8 @@
           const cy = canvasHeight * 0.45;
           const gradRadius = Math.max(canvasWidth, canvasHeight) * 0.54;
           const bgGrad = bctx.createRadialGradient(cx, cy, gradRadius * 0.03, cx, cy, gradRadius);
-          bgGrad.addColorStop(0, palette.glowColor.replace(/[\d.]+\)$/, `${0.18 * this.glowIntensity})`));
-          bgGrad.addColorStop(0.5, palette.glowColor.replace(/[\d.]+\)$/, `${0.05 * this.glowIntensity})`));
+          bgGrad.addColorStop(0, palette.glowColor.replace(/[\d.]+\)$/, `${0.24 * this.glowIntensity})`));
+          bgGrad.addColorStop(0.52, palette.glowColor.replace(/[\d.]+\)$/, `${0.07 * this.glowIntensity})`));
           bgGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
           bctx.fillStyle = bgGrad;
           bctx.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -1229,13 +1229,17 @@
           for (let rowIdx = 0; rowIdx < 16; rowIdx++) {
             let rgb;
             if (rowIdx < 11) {
-              const lum = 0.16 + (rowIdx / 10) * 0.84;
-              rgb = palette.transformColor(0.88, 0.08, 0.14, 'petal', lum, rowIdx / 14, rowIdx >= 9 ? 0.25 : 0);
+              const t = rowIdx / 10;
+              const lum = 0.22 + Math.pow(t, 0.85) * 0.78;
+              const rim = t > 0.6 ? (t - 0.6) * 2.2 : 0;
+              const spec = t >= 0.88 ? (t - 0.88) * 5.0 : 0;
+              rgb = palette.transformColor(0.92, 0.09, 0.16, 'petal', lum, rim, spec);
             } else if (rowIdx === 11) {
-              rgb = palette.transformColor(0.98, 0.80, 0.22, 'stamen', 1.0, 0.85, 0.9);
+              rgb = palette.transformColor(1.0, 0.84, 0.28, 'stamen', 1.0, 0.9, 0.95);
             } else {
-              const lum = 0.25 + ((rowIdx - 12) / 3) * 0.72;
-              rgb = palette.transformColor(0.14, 0.65, 0.18, 'leaf', lum, 0.25, 0);
+              const t = (rowIdx - 12) / 3;
+              const lum = 0.30 + t * 0.70;
+              rgb = palette.transformColor(0.14, 0.72, 0.22, 'leaf', lum, t * 0.5, 0);
             }
             actx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
             const py = (rowIdx + 0.5) * cellHInt;

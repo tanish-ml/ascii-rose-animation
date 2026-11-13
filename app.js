@@ -30,14 +30,21 @@
       scanlines: false
     });
 
+    const FLOWER_THEMES = {
+      cortes: 'crimson',
+      nylander: 'biolum',
+      fibonacci: 'gold',
+      lotus: 'sakura',
+      dahlia: 'solar'
+    };
+
     const audio = new RoseAudio.BotanicalAudioEngine();
-    const paletteKeys = Object.keys(RoseRenderer.PALETTES);
-    let paletteIdx = 0;
 
     const state = {
       isPlaying: true,
       rotSpeed: 0.42,
       baseCols: isMobile ? 64 : 88,
+      customCols: false,
       isDragging: false,
       dragMode: 'orbit',
       lastMouseX: 0,
@@ -50,13 +57,21 @@
 
     window.__ROSA_APP__ = { engine, audio, state };
 
+    const colsSlider = document.getElementById('slider-cols');
+    if (colsSlider) {
+      colsSlider.value = String(state.baseCols);
+    }
+
     function updateCanvasAndGridSize() {
       const w = window.innerWidth;
       const h = window.innerHeight;
       canvas.width = w;
       canvas.height = h;
 
-      state.baseCols = w <= 640 ? 64 : 88;
+      if (!state.customCols) {
+        state.baseCols = w <= 640 ? 64 : 88;
+        if (colsSlider) colsSlider.value = String(state.baseCols);
+      }
       const charAspect = 0.55;
       const cols = state.baseCols;
       const rows = Math.max(24, Math.round(cols * (h / Math.max(1, w)) * charAspect));
@@ -85,28 +100,28 @@
       document.documentElement.style.setProperty('--bg-void', pal.bg);
     }
 
-    // Species Buttons
+    // Species Buttons (each flower activates its own signature theme)
     const modelCards = document.querySelectorAll('.model-card');
     modelCards.forEach((card) => {
       card.addEventListener('click', () => {
         const m = card.dataset.model;
         if (!m) return;
         engine.model = m;
+        const themeKey = FLOWER_THEMES[m] || 'crimson';
+        engine.paletteKey = themeKey;
+        applyThemeAccent(themeKey);
         engine.rebuildGeometryIfNeeded(true);
         modelCards.forEach((c) => c.classList.toggle('active', c.dataset.model === m));
         audio.playChime(0, 0.45);
       });
     });
 
-    // Palette Cycle Button
-    const btnPalette = document.getElementById('btn-palette');
-    if (btnPalette) {
-      btnPalette.addEventListener('click', () => {
-        paletteIdx = (paletteIdx + 1) % paletteKeys.length;
-        const key = paletteKeys[paletteIdx];
-        engine.paletteKey = key;
-        applyThemeAccent(key);
-        showToast(RoseRenderer.PALETTES[key].name);
+    // ASCII Density Slider
+    if (colsSlider) {
+      colsSlider.addEventListener('input', () => {
+        state.customCols = true;
+        state.baseCols = parseInt(colsSlider.value, 10) || 88;
+        updateCanvasAndGridSize();
       });
     }
 
