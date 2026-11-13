@@ -2,304 +2,62 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ROSA MATHEMATICA — 3D Parametric ASCII Rose Observatory</title>
-  <meta name="description" content="Real-time 3D Z-buffered parametric ASCII rose animation featuring Román Cortés, Paul Nylander, and Fibonacci phyllotaxis mathematical surfaces, falling petal physics, and generative WebAudio synthesis." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ROSA — 3D Parametric ASCII Flora</title>
+  <meta name="description" content="Minimalist real-time 3D Z-buffered ASCII flower animation with procedural WebAudio synthesis." />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23060307' stroke='%23ff3366' stroke-width='2'/%3E%3Cpath d='M32 12 C42 18, 48 28, 32 42 C16 28, 22 18, 32 12 Z' fill='%23ff3366' opacity='0.85'/%3E%3Cpath d='M32 42 L32 56 M32 49 L40 45 M32 51 L24 47' stroke='%2322c55e' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400;1,600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body class="zen-mode">
 
   <!-- FULLSCREEN 3D Z-BUFFERED ASCII CANVAS -->
-  <main id="viewport-container" aria-label="Interactive 3D ASCII Rose Viewport">
+  <main id="viewport-container" aria-label="Interactive 3D ASCII Flower Viewport">
     <canvas id="ascii-canvas"></canvas>
   </main>
-
-  <!-- SUBTLE EDITORIAL FRAME CROSSHAIRS -->
-  <div class="viewport-frame-overlay" aria-hidden="true">
-    <span class="corner-mark tl"></span>
-    <span class="corner-mark tr"></span>
-    <span class="corner-mark bl"></span>
-    <span class="corner-mark br"></span>
-  </div>
 
   <!-- TOAST NOTIFICATION -->
   <div id="toast-notification" class="toast-notification" role="status" aria-live="polite"></div>
 
-  <!-- TOP EDITORIAL HEADER & LIVE TELEMETRY -->
+  <!-- MINIMAL TOP-LEFT WORDMARK -->
   <header class="hud-top">
-    <div class="brand-block">
-      <div class="specimen-tag">
-        <span class="pulse-dot"></span>
-        <span>SPECIMEN № 01 // Z-BUFFER ASCII ENGINE</span>
-      </div>
-      <h1 class="brand-title">ROSA MATHEMATICA <em>3D</em></h1>
-      <div class="brand-subtitle">
-        <span>TAXONOMY: <em>Rosa centifolia parametricus</em></span>
-        <span> · </span>
-        <span id="specimen-model-label">Cortés Botanical (24-Petal)</span>
-      </div>
-    </div>
-
-    <div class="poetic-banner">
-      <div id="phase-label" class="phase-label">PHASE III — CORONA (FULL MATHEMATICAL BLOOM)</div>
-      <div id="phase-verse" class="phase-verse">“A rose is a rose is a parametric surface suspended in phosphor.”</div>
-    </div>
-
-    <div class="telemetry-bar">
-      <div class="telemetry-readout" aria-label="Real-time Engine Telemetry">
-        <div class="stat-item">
-          <span class="stat-label">FPS</span>
-          <span id="stat-fps" class="stat-value">60</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">GRID</span>
-          <span id="stat-grid" class="stat-value">130×72</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">GLYPHS</span>
-          <span id="stat-glyphs" class="stat-value">1,840</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">VERTICES</span>
-          <span id="stat-vertices" class="stat-value">15,602</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">ORBIT</span>
-          <span id="stat-cam" class="stat-value">20° / 16°</span>
-        </div>
-      </div>
-
-      <div class="quick-actions">
-        <button type="button" id="btn-audio" class="hud-btn" title="Toggle Procedural Lydian WebAudio Synth (Shortcut: M)">🔈 Synth: OFF</button>
-        <button type="button" id="btn-open-math" class="hud-btn" title="View 3D Parametric Equations">📐 Equations</button>
-        <button type="button" id="btn-open-ascii" class="hud-btn" title="Inspect & Copy Raw Text ASCII Frame">📄 Raw ASCII</button>
-        <button type="button" id="btn-zen" class="hud-btn" title="Toggle Fullscreen Zen Mode (Shortcut: H)">👁️ Zen [H]</button>
-        <button type="button" id="btn-toggle-dock" class="hud-btn active" title="Toggle Art Direction Dock">⚙️ Controls</button>
-      </div>
-    </div>
+    <span class="brand-title">ROSA</span>
+    <span class="brand-sep">·</span>
+    <span id="specimen-model-label" class="brand-species">Cortés</span>
   </header>
 
-  <!-- RIGHT ART-DIRECTION & MORPHOGENESIS CONTROL DOCK -->
-  <aside id="control-dock" class="control-dock" aria-label="Morphogenesis and Rendering Controls">
-    <div class="dock-header">
-      <span class="dock-title">MORPHOGENESIS &amp; SHADER</span>
-      <span style="font-size: 9px; color: var(--text-muted);">3D Z-BUFFER</span>
+  <!-- MINIMAL BOTTOM-CENTER FLOATING PILL -->
+  <nav id="minimal-dock" class="minimal-dock" aria-label="Flora Controls">
+    <div class="species-pills" role="group" aria-label="Flower Species">
+      <button type="button" class="model-card active" data-model="cortes">Cortés</button>
+      <button type="button" class="model-card" data-model="nylander">Nylander</button>
+      <button type="button" class="model-card" data-model="fibonacci">Fibonacci</button>
+      <button type="button" class="model-card" data-model="lotus">Lotus</button>
+      <button type="button" class="model-card" data-model="dahlia">Dahlia</button>
     </div>
 
-    <div class="dock-scroll">
-      <!-- 1. 3D Mathematical Rose Species -->
-      <div class="control-group">
-        <div class="group-label">
-          <span>3D Mathematical Species</span>
-          <span class="group-val">[1-5]</span>
-        </div>
-        <div class="model-cards">
-          <button type="button" class="model-card active" data-model="cortes">
-            <span class="model-name">I. Cortés Botanical</span>
-            <span class="model-math-tag">24 Petals · JS1k</span>
-          </button>
-          <button type="button" class="model-card" data-model="nylander">
-            <span class="model-name">II. Nylander Spiral</span>
-            <span class="model-math-tag">e^(-θ/8π) · 15π</span>
-          </button>
-          <button type="button" class="model-card" data-model="fibonacci">
-            <span class="model-name">III. Tudor Fibonacci</span>
-            <span class="model-math-tag">Golden 137.5° · 36p</span>
-          </button>
-          <button type="button" class="model-card" data-model="lotus">
-            <span class="model-name">IV. Sacred Lotus</span>
-            <span class="model-math-tag">Nelumbo · 24p</span>
-          </button>
-          <button type="button" class="model-card" data-model="dahlia">
-            <span class="model-name">V. Celestial Dahlia</span>
-            <span class="model-math-tag">Quilled · 48p</span>
-          </button>
-        </div>
-      </div>
+    <span class="pill-divider" aria-hidden="true"></span>
 
-      <!-- 2. Curated Color Palettes -->
-      <div class="control-group">
-        <div class="group-label">
-          <span>Chromatic Palette</span>
-          <span class="group-val">8 Themes</span>
-        </div>
-        <div id="palette-grid" class="palette-grid"></div>
-      </div>
+    <div class="pill-controls">
+      <button type="button" id="btn-palette" class="icon-btn" title="Cycle Color Palette">
+        <span id="palette-dot" class="palette-dot"></span>
+      </button>
 
-      <!-- 3. ASCII Glyph Ramp -->
-      <div class="control-group">
-        <label class="group-label" for="ramp-select">
-          <span>Glyph Topology Ramp</span>
-        </label>
-        <select id="ramp-select" class="hud-select">
-          <option value="botanical" selected>Botanical Classic ( .·:;~+=*xX$&#@ + Contours)</option>
-          <option value="poetic">Poetic ("Rose is a rose" — Gertrude Stein)</option>
-          <option value="katakana">Cyber-Katakana (Matrix Flora)</option>
-          <option value="braille">Braille High-Density Stipple ( ⠁⠃⠇⠏⠟⠿⡿⣿)</option>
-          <option value="blocks">ANSI Block Engraving ( ·░▒▓█)</option>
-          <option value="sacred">Sacred Geometry ( ·∙∘○◌◍◎●◉✦✧★)</option>
-          <option value="wireframe">Architectural Contour Blueprint</option>
-        </select>
-      </div>
+      <label class="bloom-control" title="Bloom Unfurl">
+        <span class="bloom-label">Bloom</span>
+        <input type="range" id="slider-bloom" class="hud-slider" min="0.08" max="1.18" step="0.02" value="0.92" />
+      </label>
 
-      <!-- 4. Morphogenesis Sliders -->
-      <div class="control-group">
-        <div class="group-label">
-          <span>Bloom Unfurl (β)</span>
-          <span id="val-bloom" class="group-val">92%</span>
-        </div>
-        <input type="range" id="slider-bloom" class="hud-slider" min="0.06" max="1.20" step="0.01" value="0.92" />
-      </div>
-
-      <div class="control-group">
-        <div class="group-label">
-          <span>ASCII Grid Density</span>
-          <span id="val-cols" class="group-val">130 cols</span>
-        </div>
-        <input type="range" id="slider-cols" class="hud-slider" min="65" max="185" step="5" value="130" />
-      </div>
-
-      <div class="control-group">
-        <div class="group-label">
-          <span>Turntable Orbit Speed</span>
-          <span id="val-rotspeed" class="group-val">0.4x</span>
-        </div>
-        <input type="range" id="slider-rotspeed" class="hud-slider" min="-2.0" max="2.0" step="0.1" value="0.4" />
-      </div>
-
-      <div class="control-group">
-        <div class="group-label">
-          <span>Wind &amp; Falling Petals</span>
-          <span id="val-wind" class="group-val">35%</span>
-        </div>
-        <input type="range" id="slider-wind" class="hud-slider" min="0.0" max="1.0" step="0.05" value="0.35" />
-      </div>
-
-      <div class="control-group">
-        <div class="group-label">
-          <span>Thorns &amp; Dewdrop Specular</span>
-          <span id="val-thorns" class="group-val">78%</span>
-        </div>
-        <input type="range" id="slider-thorns" class="hud-slider" min="0.0" max="1.0" step="0.05" value="0.78" />
-      </div>
-
-      <div class="control-group">
-        <div class="group-label">
-          <span>Phosphor Bloom Glow</span>
-          <span id="val-glow" class="group-val">65%</span>
-        </div>
-        <input type="range" id="slider-glow" class="hud-slider" min="0.0" max="1.0" step="0.05" value="0.65" />
-      </div>
-
-      <!-- 5. Checkboxes -->
-      <div class="control-group">
-        <label class="toggle-row">
-          <span class="group-label">Auto-Bloom Lifecycle Wave</span>
-          <input type="checkbox" id="toggle-autobloom" />
-        </label>
-        <label class="toggle-row">
-          <span class="group-label">CRT Raster Scanlines</span>
-          <input type="checkbox" id="toggle-scanlines" checked />
-        </label>
-      </div>
-
-      <!-- 6. Action Buttons -->
-      <div class="dock-actions-grid">
-        <button type="button" id="btn-wind-gust" class="hud-btn" title="Shortcut: W">🌬️ Wind Gust</button>
-        <button type="button" id="btn-copy-ascii" class="hud-btn" title="Shortcut: C">📋 Copy ASCII</button>
-        <button type="button" id="btn-save-png" class="hud-btn" style="grid-column: span 2;">🖼️ Export High-DPI Poster (.PNG)</button>
-      </div>
+      <button type="button" id="btn-wind-gust" class="icon-btn" title="Wind Gust (W)">🌬️</button>
+      <button type="button" id="btn-audio" class="icon-btn active" title="Toggle Synth (M)">🔊</button>
+      <button type="button" id="btn-zen" class="icon-btn" title="Hide UI (H)">👁️</button>
     </div>
-  </aside>
+  </nav>
 
-  <!-- BOTTOM LIFECYCLE PRESETS & INTERACTION GUIDE -->
-  <footer class="hud-bottom">
-    <div class="lifecycle-bar" role="group" aria-label="Botanical Lifecycle Stages">
-      <button type="button" id="btn-play-pause" class="hud-btn">⏸ Pause</button>
-      <button type="button" class="phase-btn" data-phase-id="bud" data-bloom="0.14">01. GEMMA (Bud)</button>
-      <button type="button" class="phase-btn" data-phase-id="unfurl" data-bloom="0.56">02. ANTHESIS (Unfurl)</button>
-      <button type="button" class="phase-btn active" data-phase-id="full" data-bloom="0.92">03. CORONA (Full Bloom)</button>
-      <button type="button" class="phase-btn" data-phase-id="overbloom" data-bloom="1.16">04. DEFLORATIO (Petal Storm)</button>
-    </div>
-
-    <div class="interaction-hint">
-      <span><kbd>Drag</kbd> 3D Orbit</span>
-      <span> · </span>
-      <span><kbd>Scroll</kbd> Zoom</span>
-      <span> · </span>
-      <span><kbd>Shift+Drag</kbd> Pan</span>
-      <span> · </span>
-      <span><kbd>DblClick</kbd> Petal Burst</span>
-      <span> · </span>
-      <span><kbd>W</kbd> Wind</span>
-    </div>
-  </footer>
-
-  <!-- ZEN MODE EXIT BUTTON -->
-  <button type="button" id="btn-zen-exit" class="hud-btn zen-exit-pill">👁️ Exit Zen Mode [H]</button>
-
-  <!-- MODAL 1: MATHEMATICAL FORMULARY -->
-  <div id="modal-math" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-math-title">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2 id="modal-math-title" class="modal-title">Mathematical Formulary — 3D Parametric Rose Surfaces</h2>
-        <button type="button" id="btn-close-math" class="hud-btn">✕ Close</button>
-      </div>
-      <div class="modal-body">
-        <div class="formula-box">
-          <h4>I. Román Cortés Piecewise Parametric Rose (JS1k 2012, Extended to 3D Euclidean Space)</h4>
-          <div class="formula-code">Domain: (a, b) ∈ [0, 1]² with A = 2a - 1, B = 2b - 1 constrained to unit disk A² + B² &lt; 1
-24 Petals (c = k / 0.74, k ∈ [0, 23]), modulated by Bloom Factor β ∈ [0, 1.2]:
-  o(a, b, c) = A · (2 - b) · (80 - 2c) · S_β
-  w(a, b, c) = 99 - 120·cos(A) - cos(b)·(250 - 4.9c) + 50·cos((1 - b)⁷) + 2c
-  x = (o·cos(θ_c) - w·sin(θ_c)) / 195
-  z = (o·sin(θ_c) + w·cos(θ_c)) / 195
-  y = 0.40 + (-99B + 50·cos(b⁷)·β - 0.8c) / 210</div>
-        </div>
-
-        <div class="formula-box">
-          <h4>II. Paul Nylander Continuous Logarithmic Spiral Rose</h4>
-          <div class="formula-code">Domain: x ∈ [0, 1] (petal radial profile), θ ∈ [-2π, 15π·β] (continuous spiral azimuth)
-  φ(θ) = (π / 2) · exp( -θ / (8π · β) )
-  X(θ) = 1 - ½ · [ (5/4) · (1 - mod(3.6θ, 2π) / π)² - 1/4 ]²
-  y(x, φ) = 1.95653 · x² · (1.27689x - 1)² · sin(φ)
-  r_proj = X · (x·sin(φ) + y·cos(φ))
-  (X_3D, Y_3D, Z_3D) = ( r_proj·sin(θ),  X·(x·cos(φ) - y·sin(φ)),  r_proj·cos(θ) )</div>
-        </div>
-
-        <div class="formula-box">
-          <h4>III. Golden-Angle Fibonacci Phyllotaxis &amp; Directional Z-Buffer Shading</h4>
-          <div class="formula-code">Golden Angle Divergence: Δθ = π · (3 - √5) ≈ 137.50776°
-Surface Normals: n(u, v) = normalize( ∂S/∂u × ∂S/∂v )
-Luminance &amp; Velvet Crease AO:
-  L = [ I_ambient + |n · l|·k_d + (1 - |n_z|)²·k_rim ] · (0.36 + 0.64·v^0.75) + (n · h)^18·k_spec
-Overlapping Petal Lip Contour Detection:
-  Δz = z(x, y) - z(x ± 1, y ± 1) &lt; -0.058  ⇒  Select directional stroke ∈ { '/', '\', '|', '_' }</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL 2: LIVE RAW ASCII TEXT INSPECTOR -->
-  <div id="modal-ascii" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-ascii-title">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2 id="modal-ascii-title" class="modal-title">Live Raw ASCII Frame Buffer</h2>
-        <div style="display: flex; gap: 8px;">
-          <button type="button" id="btn-modal-copy-ascii" class="hud-btn active">📋 Copy Text</button>
-          <button type="button" id="btn-modal-download-txt" class="hud-btn">💾 Download .TXT</button>
-          <button type="button" id="btn-close-ascii" class="hud-btn">✕ Close</button>
-        </div>
-      </div>
-      <div class="modal-body">
-        <pre id="raw-ascii-output" class="raw-ascii-pre"></pre>
-      </div>
-    </div>
-  </div>
+  <!-- ZEN MODE EXIT PILL -->
+  <button type="button" id="btn-zen-exit" class="zen-exit-pill" title="Show Controls (H)">Controls</button>
 
   <script src="rose-math.js"></script>
   <script src="ascii-renderer.js"></script>

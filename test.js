@@ -183,7 +183,7 @@ test('All DOM IDs referenced in app.js exist in index.html', () => {
       `DOM id="${id}" referenced in app.js is missing from index.html!`
     );
   }
-  assert(checkedIds.length >= 25, `Expected at least 25 bound DOM IDs, checked ${checkedIds.length}`);
+  assert(checkedIds.length >= 8, `Expected at least 8 bound DOM IDs, checked ${checkedIds.length}`);
 });
 
 // 7. Full Interactive App Controller (app.js) Simulation
@@ -373,11 +373,8 @@ test('app.js initializes cleanly and responds to UI controls, sliders, keyboard 
   sandbox.window.triggerWindow('keydown', { key: ' ', target: { tagName: 'BODY' } });
   assert.strictEqual(app.state.isPlaying, false, 'Spacebar should toggle pause');
 
-  // Test clicking lifecycle phase button while PAUSED updates engine.bloom, slider, and readout
-  phaseBtn1.click(); // data-bloom = '0.14'
-  assert.strictEqual(app.engine.bloom, 0.14, 'Clicking phase button while paused should immediately update engine.bloom');
-  assert.strictEqual(elements['slider-bloom'].value, '0.14', 'Clicking phase button should synchronize #slider-bloom value');
-  assert.strictEqual(elements['val-bloom'].textContent, '14%', 'Clicking phase button should synchronize #val-bloom readout');
+  // Verify landscape grid aspect ratio (rows < cols for 1:1 geometric proportions)
+  assert(app.engine.rows < app.engine.cols, `Expected rows < cols on landscape viewport, got ${app.engine.cols}x${app.engine.rows}`);
 });
 
 // 8. Audio Engine Headless Safety
@@ -391,7 +388,7 @@ test('BotanicalAudioEngine degrades safely in non-browser environment', () => {
 
 // 9. High-Density Finite-Difference Surface Normals (Regression for v >= 0.999 zero-normal bug)
 test('High-density point clouds (density = 1.5625 and 2.0) have zero degenerate normals across all models', () => {
-  for (const model of ['cortes', 'nylander', 'fibonacci']) {
+  for (const model of ['cortes', 'nylander', 'fibonacci', 'lotus', 'dahlia']) {
     for (const density of [1.5625, 2.0]) {
       const pts = RoseMath.generateRosePointCloud({ model, bloom: 0.9, density });
       for (let i = 0; i < pts.length; i++) {
@@ -404,8 +401,8 @@ test('High-density point clouds (density = 1.5625 and 2.0) have zero degenerate 
 });
 
 // 10. Anatomical Receptacle Attachment & Golden-Angle Spiral Distribution (Regression for floating Nylander & 185.8 deg Cortes bug)
-test('All 3 rose models anchor petal bases into the receptacle (minY <= 0.08) across all bloom stages and distribute petals around 360 deg', () => {
-  for (const model of ['cortes', 'nylander', 'fibonacci']) {
+test('All 5 flower models anchor petal bases into the receptacle (minY <= 0.08) across all bloom stages and distribute petals around 360 deg', () => {
+  for (const model of ['cortes', 'nylander', 'fibonacci', 'lotus', 'dahlia']) {
     for (const bloom of [0.14, 0.56, 0.92, 1.16]) {
       const pts = RoseMath.generateFlowerHeadCloud({ model, bloom, density: 0.7 });
       let minPetalY = Infinity;
@@ -463,10 +460,10 @@ test('Hovering cursor over center of rose head preserves solid Z-buffer coverage
 });
 
 // 13. Touch-Action CSS & Responsive Rules Verification
-test('styles.css includes touch-action: none on viewport/canvas and overflow-x: auto on lifecycle-bar', () => {
+test('styles.css includes touch-action: none on viewport/canvas and overflow-x: auto on species-pills', () => {
   const css = fs.readFileSync(path.join(__dirname, 'styles.css'), 'utf8');
   assert(css.includes('touch-action: none'), 'styles.css must set touch-action: none to prevent touch pointercancel');
-  assert(css.includes('overflow-x: auto'), 'styles.css must allow horizontal scroll on .lifecycle-bar for small screens');
+  assert(css.includes('overflow-x: auto'), 'styles.css must allow horizontal scroll on .species-pills for small screens');
 });
 
 console.log(`\nAll ${passed} verification test suites passed!`);

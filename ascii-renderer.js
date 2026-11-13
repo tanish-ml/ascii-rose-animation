@@ -455,6 +455,37 @@
 
       if (changed || this.pointCloud.length === 0) {
         this.pointCloud = this._flowerHeadCloud.concat(this._staticFoliageCloud);
+        const n = this.pointCloud.length;
+        this._nPts = n;
+        this._px = new Float32Array(n);
+        this._py = new Float32Array(n);
+        this._pz = new Float32Array(n);
+        this._pnx = new Float32Array(n);
+        this._pny = new Float32Array(n);
+        this._pnz = new Float32Array(n);
+        this._pr = new Float32Array(n);
+        this._pg = new Float32Array(n);
+        this._pb = new Float32Array(n);
+        this._ppart = new Uint8Array(n);
+        this._player = new Int16Array(n);
+        this._pv = new Float32Array(n);
+        this._pdew = new Uint8Array(n);
+        for (let i = 0; i < n; i++) {
+          const p = this.pointCloud[i];
+          this._px[i] = p.x;
+          this._py[i] = p.y;
+          this._pz[i] = p.z;
+          this._pnx[i] = p.nx;
+          this._pny[i] = p.ny;
+          this._pnz[i] = p.nz;
+          this._pr[i] = p.r;
+          this._pg[i] = p.g;
+          this._pb[i] = p.b;
+          this._ppart[i] = PART_CODES[p.part] || PART_CODES.petal;
+          this._player[i] = p.layer || 0;
+          this._pv[i] = typeof p.v === 'number' ? p.v : 0.75;
+          this._pdew[i] = p.isDewdrop ? 1 : 0;
+        }
       }
     }
 
@@ -713,20 +744,32 @@
         }
       };
 
-      // 1. Splat main rose 3D point cloud
-      const pts = this.pointCloud;
-      const nPts = pts.length;
+      // 1. Splat main rose 3D point cloud (tight TypedArray loop)
+      const nPts = this._nPts || 0;
+      const pxArr = this._px;
+      const pyArr = this._py;
+      const pzArr = this._pz;
+      const pnxArr = this._pnx;
+      const pnyArr = this._pny;
+      const pnzArr = this._pnz;
+      const prArr = this._pr;
+      const pgArr = this._pg;
+      const pbArr = this._pb;
+      const ppartArr = this._ppart;
+      const playerArr = this._player;
+      const pvArr = this._pv;
+      const pdewArr = this._pdew;
+
       for (let i = 0; i < nPts; i++) {
-        const p = pts[i];
-        // Height-dependent wind sway (anchored at bottom of stem y = -1.64)
-        const heightFactor = clamp((p.y + 1.64) / 2.6, 0, 1.2);
+        const wy = pyArr[i];
+        const heightFactor = clamp((wy + 1.64) / 2.6, 0, 1.2);
         const swayWeight = heightFactor * heightFactor;
 
-        let wx = p.x;
-        let wy = p.y;
-        let wz = p.z;
+        let wx = pxArr[i];
+        let wz = pzArr[i];
+        const pCode = ppartArr[i];
 
-        if (p.part === 'petal' || p.part === 'stamen') {
+        if (pCode === PART_CODES.petal || pCode === PART_CODES.stamen) {
           wx *= breathScale;
           wz *= breathScale;
         }
@@ -734,21 +777,20 @@
         wx += windSwayX * swayWeight;
         wz += windSwayZ * swayWeight;
 
-        const pCode = PART_CODES[p.part] || PART_CODES.petal;
         splatPoint(
           wx,
           wy,
           wz,
-          p.nx,
-          p.ny,
-          p.nz,
-          p.r,
-          p.g,
-          p.b,
+          pnxArr[i],
+          pnyArr[i],
+          pnzArr[i],
+          prArr[i],
+          pgArr[i],
+          pbArr[i],
           pCode,
-          p.layer || 0,
-          Boolean(p.isDewdrop),
-          typeof p.v === 'number' ? p.v : 0.75
+          playerArr[i],
+          pdewArr[i] === 1,
+          pvArr[i]
         );
       }
 
@@ -1086,27 +1128,49 @@
       const cols = this.cols;
       const rows = this.rows;
 
-      // 1. Background fill with subtle radial atmospheric glow centered behind the rose
-      ctx.fillStyle = palette.bg;
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-      const cx = canvasWidth * (0.5 + (this.viewportOffsetX || 0));
-      const cy = canvasHeight * 0.44;
-      const gradRadius = Math.max(canvasWidth, canvasHeight) * 0.54;
-      const bgGrad = ctx.createRadialGradient(cx, cy, gradRadius * 0.03, cx, cy, gradRadius);
-      bgGrad.addColorStop(0, palette.glowColor.replace(/[\d.]+\)$/, `${0.16 * this.glowIntensity + this.audioEnergy * 0.09})`));
-      bgGrad.addColorStop(0.48, palette.glowColor.replace(/[\d.]+\)$/, `${0.045 * this.glowIntensity})`));
-      bgGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      // 1. Cached Background & Radial Glow (eliminates per-frame gradient allocation)
+      const bgKey = `${canvasWidth}|${canvasHeight}|${this.paletteKey}|${Math.round(this.glowIntensity * 10)}`;
+      if (typeof document !== 'undefined') {
+        if (!this._bgCanvas) {
+          this._bgCanvas = document.createElement('canvas');
+        }
+        if (this._bgCacheKey !== bgKey) {
+          this._bgCacheKey = bgKey;
+          this._bgCanvas.width = canvasWidth;
+          this._bgCanvas.height = canvasHeight;
+          const bctx = this._bgCanvas.getContext('2d');
+          bctx.fillStyle = palette.bg;
+          bctx.fillRect(0, 0, canvasWidth, canvasHeight);
+          const cx = canvasWidth * 0.5;
+          const cy = canvasHeight * 0.45;
+          const gradRadius = Math.max(canvasWidth, canvasHeight) * 0.54;
+          const bgGrad = bctx.createRadialGradient(cx, cy, gradRadius * 0.03, cx, cy, gradRadius);
+          bgGrad.addColorStop(0, palette.glowColor.replace(/[\d.]+\)$/, `${0.18 * this.glowIntensity})`));
+          bgGrad.addColorStop(0.5, palette.glowColor.replace(/[\d.]+\)$/, `${0.05 * this.glowIntensity})`));
+          bgGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          bctx.fillStyle = bgGrad;
+          bctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        }
+        ctx.drawImage(this._bgCanvas, 0, 0);
+      } else {
+        ctx.fillStyle = palette.bg;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        const cx = canvasWidth * 0.5;
+        const cy = canvasHeight * 0.45;
+        const gradRadius = Math.max(canvasWidth, canvasHeight) * 0.54;
+        const bgGrad = ctx.createRadialGradient(cx, cy, gradRadius * 0.03, cx, cy, gradRadius);
+        bgGrad.addColorStop(0, palette.glowColor.replace(/[\d.]+\)$/, `${0.18 * this.glowIntensity})`));
+        bgGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
 
       // 2. Calculate optimal cell dimensions & font size (1:1 aspect-matched monospace grid)
       const cellW = canvasWidth / cols;
       const cellH = canvasHeight / rows;
       const fontSize = Math.max(8, Math.floor(Math.min(cellH * 0.98, cellW * 1.80)));
-      const fontStack = '"JetBrains Mono", "Space Mono", "Fira Code", "Consolas", monospace';
 
-      ctx.font = `600 ${fontSize}px ${fontStack}`;
+      ctx.font = `600 ${fontSize}px "JetBrains Mono", "Space Mono", "Fira Code", "Consolas", monospace`;
       ctx.textBaseline = 'middle';
       ctx.textAlign = 'center';
 
@@ -1114,45 +1178,8 @@
       const colorR = this.colorR;
       const colorG = this.colorG;
       const colorB = this.colorB;
-      const specBuf = this.specBuf;
-      const lumBuf = this.lumBuf;
 
-      // 3. Soft optical phosphor glyph-halo pass (uses fillText + shadowBlur, NEVER rectangular fillRect boxes!)
-      if (this.glowIntensity > 0.12) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'screen';
-        const haloFontSize = Math.max(9, Math.round(fontSize * 1.14));
-        ctx.font = `700 ${haloFontSize}px ${fontStack}`;
-        ctx.shadowColor = palette.accent;
-        ctx.shadowBlur = Math.round(fontSize * 0.85 * this.glowIntensity);
-        const glowAlpha = clamp(this.glowIntensity * 0.34 + this.audioEnergy * 0.16, 0.08, 0.52);
-        let lastGlowRgb = -1;
-        for (let r = 0; r < rows; r++) {
-          const rowOff = r * cols;
-          const py = (r + 0.5) * cellH;
-          for (let c = 0; c < cols; c++) {
-            const idx = rowOff + c;
-            const ch = charGrid[idx];
-            if (ch === ' ') continue;
-            if (lumBuf[idx] > 0.72 || specBuf[idx] > 0.38) {
-              const px = (c + 0.5) * cellW;
-              const cr = colorR[idx];
-              const cg = colorG[idx];
-              const cb = colorB[idx];
-              const packed = (cr << 16) | (cg << 8) | cb;
-              if (packed !== lastGlowRgb) {
-                lastGlowRgb = packed;
-                ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${glowAlpha})`;
-              }
-              ctx.fillText(ch, px, py);
-            }
-          }
-        }
-        ctx.restore();
-      }
-
-      // 4. Crisp foreground ASCII glyphs
-      ctx.font = `600 ${fontSize}px ${fontStack}`;
+      // 3. Fast single-pass foreground ASCII glyphs (quantized RGB reduces fillStyle state switches)
       let lastFgRgb = -1;
       for (let r = 0; r < rows; r++) {
         const rowOff = r * cols;
@@ -1163,9 +1190,9 @@
           if (ch === ' ') continue;
 
           const px = (c + 0.5) * cellW;
-          const cr = colorR[idx];
-          const cg = colorG[idx];
-          const cb = colorB[idx];
+          const cr = colorR[idx] & 0xF8;
+          const cg = colorG[idx] & 0xF8;
+          const cb = colorB[idx] & 0xF8;
           const packed = (cr << 16) | (cg << 8) | cb;
           if (packed !== lastFgRgb) {
             lastFgRgb = packed;
@@ -1175,11 +1202,27 @@
         }
       }
 
-      // 5. Subtle CRT scanline post-processing
+      // 4. Cached CRT scanline pattern (1 fillRect instead of 330+ per frame)
       if (this.scanlines) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.13)';
-        for (let y = 0; y < canvasHeight; y += 3) {
-          ctx.fillRect(0, y, canvasWidth, 1);
+        if (typeof document !== 'undefined') {
+          if (!this._scanPattern) {
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 1;
+            pCanvas.height = 3;
+            const pctx = pCanvas.getContext('2d');
+            pctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
+            pctx.fillRect(0, 0, 1, 1);
+            this._scanPattern = ctx.createPattern(pCanvas, 'repeat');
+          }
+          if (this._scanPattern) {
+            ctx.fillStyle = this._scanPattern;
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+          }
+        } else {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.14)';
+          for (let y = 0; y < canvasHeight; y += 3) {
+            ctx.fillRect(0, y, canvasWidth, 1);
+          }
         }
       }
     }
